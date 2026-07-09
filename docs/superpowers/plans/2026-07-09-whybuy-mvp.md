@@ -71,7 +71,7 @@
 **Interfaces:**
 - Produces: 동작하는 Expo TS 프로젝트, `npm test`·`npx tsc --noEmit` 그린.
 
-- [ ] **Step 1: 스캐폴드 생성 (비어있지 않은 repo라 tmp 경유)**
+- [x] **Step 1: 스캐폴드 생성 (비어있지 않은 repo라 tmp 경유)**
 
 ```bash
 cd /Users/im-yoseb/trade-helper
@@ -80,11 +80,11 @@ rsync -a whybuy-tmp/ ./ && rm -rf whybuy-tmp
 npm install
 ```
 
-- [ ] **Step 2: 템플릿 예제 정리 + 앱 이름**
+- [x] **Step 2: 템플릿 예제 정리 + 앱 이름**
 
 `app.json`의 `name`/`slug`를 `WhyBuy`/`whybuy`로 변경. 템플릿의 예제 화면(`app/(tabs)/explore.tsx` 등 데모 콘텐츠)은 남겨두되 Task 7에서 교체 예정이므로 지금은 빌드만 통과시킨다.
 
-- [ ] **Step 3: 테스트 러너 설치**
+- [x] **Step 3: 테스트 러너 설치**
 
 ```bash
 npx expo install jest-expo jest @types/jest -- --save-dev
@@ -98,7 +98,7 @@ npm install --save-dev @testing-library/react-native
 "jest": { "preset": "jest-expo", "transformIgnorePatterns": ["node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@supabase/.*|@tanstack/.*)/)"] }
 ```
 
-- [ ] **Step 4: 스모크 테스트 작성 + 실행**
+- [x] **Step 4: 스모크 테스트 작성 + 실행**
 
 ```ts
 // __tests__/smoke.test.ts
@@ -109,7 +109,7 @@ describe('project', () => {
 
 Run: `npm test` → PASS. Run: `npx tsc --noEmit` → 에러 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A && git commit -m "chore: scaffold Expo TypeScript app with jest-expo"
