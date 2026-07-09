@@ -9,6 +9,17 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { DISCLAIMER } from '@/constants/brand';
 import { colors, type, space } from '@/theme';
 
+const VERDICT_COLOR: Record<string, string> = { '타당': colors.tradingUp, '부분 타당': colors.statusWatch, '약함': colors.tradingDown };
+
+function VerdictBadge({ verdict }: { verdict: string }) {
+  const c = VERDICT_COLOR[verdict] ?? colors.muted;
+  return (
+    <View style={{ backgroundColor: c + '1F', borderRadius: 9999, paddingHorizontal: 10, paddingVertical: 3 }}>
+      <Text style={[type.titleSm, { color: c }]}>{verdict}</Text>
+    </View>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={{ marginBottom: space.lg }}>
@@ -60,14 +71,42 @@ export default function ThesisDetailScreen() {
 
       {thesis.soundness_review ? (
         <Card style={{ marginBottom: space.lg }}>
-          <Section title="AI 합당성 평가">
-            <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.soundness_review.soundness}</Text>
-          </Section>
-          <Section title="반박 포인트">
+          <Text style={[type.titleMd, { color: colors.onDark, marginBottom: space.md }]}>AI 점검 결과</Text>
+
+          {(thesis.soundness_review.reason_reviews ?? []).map((r, i) => (
+            <View key={i} style={{ marginBottom: space.md, paddingBottom: space.md, borderBottomWidth: 1, borderBottomColor: colors.hairlineOnDark }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.xxs }}>
+                <Text style={[type.titleSm, { color: colors.onDark, flex: 1, marginRight: space.xs }]}>{r.reason}</Text>
+                <VerdictBadge verdict={r.verdict} />
+              </View>
+              <Text style={[type.bodyMd, { color: colors.body }]}>{r.comment}</Text>
+            </View>
+          ))}
+
+          {/* 구버전 통짜 텍스트 호환 */}
+          {!thesis.soundness_review.reason_reviews && thesis.soundness_review.soundness ? (
+            <Text style={[type.bodyMd, { color: colors.body, marginBottom: space.md }]}>{thesis.soundness_review.soundness}</Text>
+          ) : null}
+
+          {(thesis.soundness_review.missing_points ?? []).length > 0 ? (
+            <Section title="놓치고 있는 관점">
+              {thesis.soundness_review.missing_points!.map((m, i) => (
+                <Text key={i} style={[type.bodyMd, { color: colors.statusWatch, marginBottom: space.xxs }]}>· {m}</Text>
+              ))}
+            </Section>
+          ) : null}
+
+          <Section title="가설이 깨질 수 있는 경우">
             {thesis.soundness_review.counterpoints.map((c, i) => (
               <Text key={i} style={[type.bodyMd, { color: colors.tradingDown, marginBottom: space.xxs }]}>· {c}</Text>
             ))}
           </Section>
+
+          <Pressable onPress={() => verify.mutate(id!, { onError: (e) => Alert.alert('검증 실패', e.message) })} disabled={verify.isPending}>
+            <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>
+              {verify.isPending ? '다시 점검 중…' : '다시 점검하기'}
+            </Text>
+          </Pressable>
         </Card>
       ) : (
         <PrimaryButton

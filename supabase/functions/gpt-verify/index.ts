@@ -2,32 +2,33 @@ import { createClient } from "@supabase/supabase-js";
 import { callOpenAI, parseJsonBlock } from "../_shared/openai.ts";
 
 interface VerifyResult {
-  soundness: string;
+  reason_reviews: Array<{ reason: string; verdict: "타당" | "부분 타당" | "약함"; comment: string }>;
+  missing_points: string[];
   counterpoints: string[];
   check_conditions: Array<{ label: string; event_type: "earnings" | "guidance" | "metric" | "custom"; next_check_date: string | null }>;
 }
 
 export function buildVerifyPrompt(p: { name: string; ticker: string; market: string; buy_reason: string; break_conditions: string; target_horizon: string; today: string }): string {
-  return `당신은 투자 가설 검증 보조 도구다. 자문·추천이 아니라 논리 점검과 일정 추출만 한다. "매수/매도하세요" 같은 표현 금지.
+  return `당신은 투자 가설 점검 도우미다. 자문·추천이 아니라, 사용자가 쓴 매수 이유를 하나씩 점검해주는 역할이다. "매수/매도하세요" 같은 표현 금지.
 오늘: ${p.today}
 종목: ${p.name} (${p.market}:${p.ticker})
-매수 가설: ${p.buy_reason}
+사용자의 매수 이유: ${p.buy_reason}
 깨지는 조건: ${p.break_conditions}
 목표 보유 기간: ${p.target_horizon}
 
-웹검색으로 이 종목의 다가오는 이벤트(실적발표일 등)를 확인하고, 다음 JSON만 출력:
-{"soundness":"가설의 논리 타당성 평가와 빠진 관점","counterpoints":["가설이 깨질 수 있는 시나리오 2-4개"],"check_conditions":[{"label":"확인 항목","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}
+먼저 사용자의 매수 이유를 개별 논점으로 나눠라 (번호·줄바꿈·문장 단위).
+그 다음 웹검색으로 종목의 실제 상황과 다가오는 이벤트(실적발표일 등)를 확인하고, 다음 JSON만 출력:
+{"reason_reviews":[{"reason":"논점 요약 (20자 이내)","verdict":"타당|부분 타당|약함","comment":"왜 그런지 쉬운 말 1-2문장"}],"missing_points":["사용자가 놓친 관점 1-3개, 각 한 문장"],"counterpoints":["가설이 깨질 수 있는 시나리오 2-4개, 각 한 문장"],"check_conditions":[{"label":"확인 항목 (25자 이내)","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}
 
 작성 규칙:
-- soundness: 한국어 3-5문장. 문장마다 \\n 로 줄바꿈. 한 문장 50자 이내로 짧게.
-- URL·마크다운 링크·괄호 출처표기 절대 금지. 어떤 필드에도 링크 넣지 마라.
-- counterpoints 각 항목은 완결된 한 문장. 중간에 끊지 마라.
-- check_conditions의 label은 25자 이내로 간결하게.
+- 모든 문장은 쉬운 일상어로 써라. 어려운 용어를 쓰면 바로 뒤에 짧게 풀어써라. 예: "포워드 PER(내년 이익 대비 주가 배수)".
+- 한 문장 50자 이내. 완결된 문장으로, 중간에 끊지 마라.
+- URL·마크다운 링크·괄호 출처표기 절대 금지.
+- verdict 기준: 사실과 부합하고 논리 연결이 강하면 "타당", 방향은 맞지만 조건부/근거 부족이면 "부분 타당", 사실과 다르거나 논리가 끊기면 "약함".
 - 자산 유형을 먼저 판별하라:
-  · 개별 주식 → 기업 실적·밸류에이션 기준으로 평가.
-  · ETF/펀드 → PER·수주잔고 같은 단일기업 지표는 부적합하다고 짚고, 섹터 사이클·주요 편입종목·자금 유출입·보수 관점으로 가설을 재해석해 평가하라. soundness 첫 문장을 "ℹ️ ETF 관점 평가:" 로 시작.
-  · 존재하지 않거나 상장폐지된 티커 → soundness 첫 문장을 "⚠️ 티커 확인 필요:" 로 시작.
-- 반드시 완전하고 유효한 JSON으로 끝내라. 도중에 자르지 마라.`;
+  · ETF/펀드 → 단일기업 지표(PER·수주잔고)가 안 맞는 논점은 verdict "약함" 처리하고 comment에서 섹터·편입종목 관점으로 바꿔 설명하라.
+  · 존재하지 않거나 상장폐지된 티커 → reason_reviews 첫 항목 reason을 "⚠️ 티커 확인 필요"로, comment에 어떤 종목인지 설명.
+- 반드시 완전하고 유효한 JSON으로 끝내라.`;
 }
 
 const CORS_HEADERS = {
@@ -65,8 +66,14 @@ export async function handleVerify(req: Request, deps?: { callFn?: typeof callOp
     const result = parseJsonBlock<VerifyResult>(raw);
 
     await supabase.from("theses").update({
-      soundness_review: { soundness: result.soundness, counterpoints: result.counterpoints },
+      soundness_review: {
+        reason_reviews: result.reason_reviews,
+        missing_points: result.missing_points,
+        counterpoints: result.counterpoints,
+      },
     }).eq("id", thesis_id);
+    // 재검증 시 일정 중복 방지 — 기존 open 조건 삭제 후 재생성
+    await supabase.from("check_conditions").delete().eq("thesis_id", thesis_id).eq("status", "open");
     if (result.check_conditions.length) {
       await supabase.from("check_conditions").insert(
         result.check_conditions.map((c) => ({ thesis_id, label: c.label, event_type: c.event_type, next_check_date: c.next_check_date })),

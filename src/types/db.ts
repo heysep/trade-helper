@@ -7,8 +7,14 @@ export interface Holding {
   id: string; user_id: string; ticker: string; market: 'KRX' | 'US';
   name: string; created_at: string;
 }
+export interface ReasonReview {
+  reason: string; verdict: '타당' | '부분 타당' | '약함'; comment: string;
+}
 export interface SoundnessReview {
-  soundness: string; counterpoints: string[];
+  soundness?: string;               // 구버전 호환 (통짜 텍스트)
+  reason_reviews?: ReasonReview[];  // 매수 이유별 개별 판정
+  missing_points?: string[];        // 놓친 관점
+  counterpoints: string[];
 }
 export interface Thesis {
   id: string; holding_id: string; user_id: string;
