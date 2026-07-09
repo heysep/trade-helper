@@ -1512,7 +1512,7 @@ Deno.test("verify prompt contains thesis fields and JSON contract, no advice ton
 - Consumes: `useThesis`, `supabase.functions.invoke('gpt-verify')`, `TVChart`, `Card`, `StatusBadge`, `DISCLAIMER`
 - Produces: `useVerifyThesis(): UseMutationResult` — `mutate(thesisId)` → 성공 시 `['thesis', id]`·`['check_conditions']` invalidate. 상세 화면: 가설 텍스트 + soundness_review(없으면 "AI 검증" 버튼) + TVChart.
 
-- [ ] **Step 1: 훅 구현**
+- [x] **Step 1: 훅 구현**
 
 ```ts
 // src/hooks/useVerifyThesis.ts
@@ -1535,7 +1535,7 @@ export function useVerifyThesis() {
 }
 ```
 
-- [ ] **Step 2: 상세 화면 구현**
+- [x] **Step 2: 상세 화면 구현**
 
 ```tsx
 // app/thesis/[id].tsx
@@ -1614,9 +1614,9 @@ export default function ThesisDetailScreen() {
 }
 ```
 
-- [ ] **Step 3: `npx tsc --noEmit && npm test` → PASS**
+- [x] **Step 3: `npx tsc --noEmit && npm test` → PASS**
 
-- [ ] **Step 4: Commit** — `git add -A && git commit -m "feat: add thesis detail screen with AI verification flow"`
+- [x] **Step 4: Commit** — `git add -A && git commit -m "feat: add thesis detail screen with AI verification flow"`
 
 ---
 
