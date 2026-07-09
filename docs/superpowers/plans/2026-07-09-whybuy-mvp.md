@@ -637,13 +637,13 @@ git add -A && git commit -m "feat: add DB types and Supabase schema migration (R
 - Consumes: env `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 - Produces: `supabase` 싱글턴, `<SessionProvider>` + `useSession(): { userId: string | null, ready: boolean }`. 세션 없으면 `signInAnonymously()` 자동. (Supabase 대시보드에서 Anonymous provider 활성화 필요 — README에 기록)
 
-- [ ] **Step 1: 설치**
+- [x] **Step 1: 설치**
 
 ```bash
 npx expo install @supabase/supabase-js @react-native-async-storage/async-storage react-native-url-polyfill @tanstack/react-query
 ```
 
-- [ ] **Step 2: 실패 테스트**
+- [x] **Step 2: 실패 테스트**
 
 ```ts
 // __tests__/supabase.test.ts
@@ -660,7 +660,7 @@ it('reads env', () => {
 });
 ```
 
-- [ ] **Step 3: 실행 → FAIL. 구현:**
+- [x] **Step 3: 실행 → FAIL. 구현:**
 
 ```ts
 // src/lib/supabase.ts
@@ -735,9 +735,9 @@ EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_ANON_KEY
 ```
 
-- [ ] **Step 4: `npm test && npx tsc --noEmit` → PASS**
+- [x] **Step 4: `npm test && npx tsc --noEmit` → PASS**
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: add Supabase client, anonymous session provider, react-query"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "feat: add Supabase client, anonymous session provider, react-query"`
 
 ---
 
