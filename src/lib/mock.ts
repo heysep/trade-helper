@@ -111,6 +111,15 @@ export function mockAddThesis(input: { holding_id: string; buy_reason: string; b
   theses.unshift(t);
   return t;
 }
+export function mockCloseThesis(thesisId: string, outcome: 'success' | 'fail'): Thesis {
+  const t = theses.find((x) => x.id === thesisId);
+  if (!t) throw new Error('not found');
+  t.status = 'closed';
+  t.outcome = outcome;
+  t.closed_at = iso(new Date());
+  return { ...t };
+}
+
 export function mockVerify(thesisId: string): { soundness: string; counterpoints: string[] } {
   const review = {
     soundness: '(미리보기) 가설의 인과 구조는 명확하나, 깨지는 조건에 정량 기준(수치·기간)을 추가하면 점검 정확도가 올라갑니다.',

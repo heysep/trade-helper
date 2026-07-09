@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { isMockMode, MOCK, mockAddThesis } from '@/lib/mock';
+import { isMockMode, MOCK, mockAddThesis, mockCloseThesis } from '@/lib/mock';
 import type { Thesis } from '@/types/db';
 
 export function useTheses(holdingId?: string) {
@@ -29,6 +29,25 @@ export function useThesis(id: string) {
       const { data, error } = await supabase.from('theses').select('*').eq('id', id).single();
       if (error) throw error;
       return data as unknown as Thesis;
+    },
+  });
+}
+
+export function useCloseThesis() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { thesisId: string; outcome: 'success' | 'fail' }) => {
+      if (isMockMode()) return mockCloseThesis(input.thesisId, input.outcome);
+      const { data, error } = await supabase.from('theses')
+        .update({ status: 'closed', outcome: input.outcome, closed_at: new Date().toISOString() })
+        .eq('id', input.thesisId).select().single();
+      if (error) throw error;
+      return data as unknown as Thesis;
+    },
+    onSuccess: (_d, input) => {
+      qc.invalidateQueries({ queryKey: ['theses'] });
+      qc.invalidateQueries({ queryKey: ['thesis', input.thesisId] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 }

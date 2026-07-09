@@ -21,6 +21,6 @@ export const type = {
   bodyMd: t({ fontFamily: fontFamilies.sans, fontSize: 14, lineHeight: 21 }),
   bodySm: t({ fontFamily: fontFamilies.sans, fontSize: 13, lineHeight: 19 }),
   caption: t({ fontFamily: fontFamilies.sansMedium, fontSize: 12, lineHeight: 17 }),
-  button: t({ fontFamily: fontFamilies.sansSemiBold, fontSize: 15, lineHeight: 15 }),
+  button: t({ fontFamily: fontFamilies.sansSemiBold, fontSize: 15, lineHeight: 20 }),
   navLink: t({ fontFamily: fontFamilies.sansMedium, fontSize: 12, lineHeight: 16 }),
 } as const;
