@@ -19,11 +19,15 @@ export function buildVerifyPrompt(p: { name: string; ticker: string; market: str
 {"soundness":"가설의 논리 타당성 평가와 빠진 관점","counterpoints":["가설이 깨질 수 있는 시나리오 2-4개"],"check_conditions":[{"label":"확인 항목","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}
 
 작성 규칙:
-- soundness: 한국어 3-5문장. 문장마다 \\n 로 줄바꿈. 한 문장 40자 이내로 짧게.
+- soundness: 한국어 3-5문장. 문장마다 \\n 로 줄바꿈. 한 문장 50자 이내로 짧게.
 - URL·마크다운 링크·괄호 출처표기 절대 금지. 어떤 필드에도 링크 넣지 마라.
-- counterpoints 각 항목은 한 문장.
+- counterpoints 각 항목은 완결된 한 문장. 중간에 끊지 마라.
 - check_conditions의 label은 25자 이내로 간결하게.
-- 티커가 존재하지 않거나 가설 내용과 불일치하면 soundness 첫 문장을 "⚠️ 티커 확인 필요:" 로 시작하라.`;
+- 자산 유형을 먼저 판별하라:
+  · 개별 주식 → 기업 실적·밸류에이션 기준으로 평가.
+  · ETF/펀드 → PER·수주잔고 같은 단일기업 지표는 부적합하다고 짚고, 섹터 사이클·주요 편입종목·자금 유출입·보수 관점으로 가설을 재해석해 평가하라. soundness 첫 문장을 "ℹ️ ETF 관점 평가:" 로 시작.
+  · 존재하지 않거나 상장폐지된 티커 → soundness 첫 문장을 "⚠️ 티커 확인 필요:" 로 시작.
+- 반드시 완전하고 유효한 JSON으로 끝내라. 도중에 자르지 마라.`;
 }
 
 const CORS_HEADERS = {
@@ -55,7 +59,8 @@ export async function handleVerify(req: Request, deps?: { callFn?: typeof callOp
         buy_reason: thesis.buy_reason, break_conditions: thesis.break_conditions,
         target_horizon: thesis.target_horizon, today: new Date().toISOString().slice(0, 10),
       }),
-      webSearch: true, maxOutputTokens: 6000, reasoningEffort: 'low',
+      // verify는 종목·가설당 1회성 — 품질 우선 (medium + 넉넉한 토큰)
+      webSearch: true, maxOutputTokens: 10000, reasoningEffort: 'medium',
     });
     const result = parseJsonBlock<VerifyResult>(raw);
 
