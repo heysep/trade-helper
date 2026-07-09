@@ -10,6 +10,8 @@ export function getSupabaseConfig(env: Record<string, string | undefined> = proc
 }
 
 const cfg = (() => { try { return getSupabaseConfig(); } catch { return null; } })();
-export const supabase = cfg
+// SSR(웹 정적 렌더) 가드: Node에는 window/AsyncStorage 없음 — 클라이언트는 브라우저/네이티브 런타임에서만 생성
+const isRuntime = typeof window !== 'undefined';
+export const supabase = cfg && isRuntime
   ? createClient(cfg.url, cfg.anonKey, { auth: { storage: AsyncStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false } })
   : (null as unknown as ReturnType<typeof createClient>);
