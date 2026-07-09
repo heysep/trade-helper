@@ -3,6 +3,7 @@ import { ScrollView, View, Text, Alert, Pressable } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useAddHolding } from '@/hooks/useHoldings';
 import { useAddThesis } from '@/hooks/useTheses';
+import { tickerExists } from '@/lib/ticker';
 import { validateThesisInput } from '../thesis/new';
 import { TextField } from '@/components/TextField';
 import { PrimaryButton } from '@/components/PrimaryButton';
@@ -27,6 +28,11 @@ export default function NewHoldingScreen() {
     if (!name.trim() || !ticker.trim()) { Alert.alert('입력 확인', '종목명과 티커를 입력해 주세요.'); return; }
     const err = validateThesisInput({ buy_reason: buyReason, break_conditions: breakConditions, target_horizon: horizon });
     if (err) { Alert.alert('입력 확인', err); return; }
+    const exists = await tickerExists(ticker.trim(), market);
+    if (exists === false) {
+      Alert.alert('티커 확인 필요', `${market} 시장에서 "${ticker.trim().toUpperCase()}" 시세를 찾을 수 없습니다. 티커를 다시 확인해 주세요.`);
+      return;
+    }
     try {
       const holding = await addHolding.mutateAsync({ name: name.trim(), ticker: ticker.trim(), market });
       const thesis = await addThesis.mutateAsync({

@@ -16,7 +16,14 @@ export function buildVerifyPrompt(p: { name: string; ticker: string; market: str
 목표 보유 기간: ${p.target_horizon}
 
 웹검색으로 이 종목의 다가오는 이벤트(실적발표일 등)를 확인하고, 다음 JSON만 출력:
-{"soundness":"가설의 논리 타당성 평가와 빠진 관점 (한국어 3-5문장)","counterpoints":["가설이 깨질 수 있는 시나리오 2-4개"],"check_conditions":[{"label":"확인 항목","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}`;
+{"soundness":"가설의 논리 타당성 평가와 빠진 관점","counterpoints":["가설이 깨질 수 있는 시나리오 2-4개"],"check_conditions":[{"label":"확인 항목","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}
+
+작성 규칙:
+- soundness: 한국어 3-5문장. 문장마다 \\n 로 줄바꿈. 한 문장 40자 이내로 짧게.
+- URL·마크다운 링크·괄호 출처표기 절대 금지. 어떤 필드에도 링크 넣지 마라.
+- counterpoints 각 항목은 한 문장.
+- check_conditions의 label은 25자 이내로 간결하게.
+- 티커가 존재하지 않거나 가설 내용과 불일치하면 soundness 첫 문장을 "⚠️ 티커 확인 필요:" 로 시작하라.`;
 }
 
 const CORS_HEADERS = {

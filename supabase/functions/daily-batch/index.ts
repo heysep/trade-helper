@@ -12,7 +12,9 @@ export function decideEval(scan: { change_level: string }): "skip" | "eval" {
 
 export function buildScanPrompt(p: { ticker: string; market: string; name: string; today: string }): string {
   return `당신은 종목 데일리 스캐너다. 오늘(${p.today}) 기준 ${p.name}(${p.market}:${p.ticker})에 대해 웹검색으로 최근 24-48시간 내 투자 판단에 영향을 줄 뉴스·공시·실적·가이던스 변화만 확인하라. 루머·주가등락 자체는 제외. 다음 JSON만 출력:
-{"summary":"핵심 변화 요약 (한국어 2-4문장, 변화 없으면 '특이사항 없음')","change_level":"none|minor|major","sources":["url1","url2"]}`;
+{"summary":"핵심 변화 요약 (한국어 2-4문장, 변화 없으면 '특이사항 없음')","change_level":"none|minor|major","sources":["url1","url2"]}
+
+작성 규칙: summary에는 URL·마크다운 링크 금지 (링크는 sources 배열에만). 문장 짧게.`;
 }
 
 export function buildEvalPrompt(p: { buy_reason: string; break_conditions: string; summary: string; today: string }): string {
@@ -23,7 +25,9 @@ export function buildEvalPrompt(p: { buy_reason: string; break_conditions: strin
 오늘 스캔 요약: ${p.summary}
 
 스캔 내용이 가설/깨지는 조건에 미치는 영향을 판단해 다음 JSON만 출력:
-{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)"}`;
+{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)"}
+
+작성 규칙: rationale에 URL·마크다운 링크 금지. 문장마다 \\n 줄바꿈, 짧게.`;
 }
 
 interface ScanJson { summary: string; change_level: "none" | "minor" | "major"; sources: string[] }
