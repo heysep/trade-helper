@@ -1631,7 +1631,7 @@ export default function ThesisDetailScreen() {
 - Consumes: `useCheckConditions` (`CalendarItem[]`)
 - Produces: `groupByMonth(items: CalendarItem[]): Array<{ month: string; items: CalendarItem[] }>` (month = `2026-08` → 표기 `8월`), `CalendarRow({ item, onPress })` — 좌 날짜(Plex)·중 라벨·우 종목칩, earnings는 `★` gold.
 
-- [ ] **Step 1: 실패 테스트**
+- [x] **Step 1: 실패 테스트**
 
 ```ts
 // __tests__/calendar.test.ts
@@ -1652,7 +1652,7 @@ it('groups sorted items by month', () => {
 });
 ```
 
-- [ ] **Step 2: 실행 → FAIL. 구현:**
+- [x] **Step 2: 실행 → FAIL. 구현:**
 
 ```tsx
 // src/components/CalendarRow.tsx
@@ -1725,9 +1725,9 @@ export default function CalendarScreen() {
 }
 ```
 
-- [ ] **Step 3: `npm test && npx tsc --noEmit` → PASS**
+- [x] **Step 3: `npm test && npx tsc --noEmit` → PASS**
 
-- [ ] **Step 4: Commit** — `git add -A && git commit -m "feat: add check-schedule calendar screen grouped by month"`
+- [x] **Step 4: Commit** — `git add -A && git commit -m "feat: add check-schedule calendar screen grouped by month"`
 
 ---
 
