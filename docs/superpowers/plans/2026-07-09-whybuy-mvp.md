@@ -756,7 +756,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_ANON_KEY
   - `useCheckResults(date?: string)` — 오늘 기본
   - `computeStats(theses: Thesis[]): Stats` + `useStats()`, `Stats = { total, active, success, fail, avgHoldingDays, failedTheses: Thesis[] }`
 
-- [ ] **Step 1: 실패 테스트 (computeStats)**
+- [x] **Step 1: 실패 테스트 (computeStats)**
 
 ```ts
 // __tests__/useStats.test.ts
@@ -790,7 +790,7 @@ it('handles empty list', () => {
 });
 ```
 
-- [ ] **Step 2: 실행 → FAIL. 구현:**
+- [x] **Step 2: 실행 → FAIL. 구현:**
 
 ```ts
 // src/hooks/useStats.ts
@@ -959,9 +959,9 @@ export function useCheckResults(date?: string) {
 }
 ```
 
-- [ ] **Step 3: `npm test && npx tsc --noEmit` → PASS**
+- [x] **Step 3: `npm test && npx tsc --noEmit` → PASS**
 
-- [ ] **Step 4: Commit** — `git add -A && git commit -m "feat: add data hooks (holdings, theses, conditions, results, stats)"`
+- [x] **Step 4: Commit** — `git add -A && git commit -m "feat: add data hooks (holdings, theses, conditions, results, stats)"`
 
 ---
 
