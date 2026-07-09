@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { isMockMode, MOCK, mockAddHolding } from '@/lib/mock';
 import type { Holding } from '@/types/db';
 
 export function useHoldings() {
   return useQuery({
     queryKey: ['holdings'],
     queryFn: async () => {
+      if (isMockMode()) return [...MOCK.holdings];
       const { data, error } = await supabase.from('holdings').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as Holding[];
@@ -17,6 +19,7 @@ export function useAddHolding() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { ticker: string; market: 'KRX' | 'US'; name: string }) => {
+      if (isMockMode()) return mockAddHolding(input);
       const { data: userData } = await supabase.auth.getUser();
       const { data, error } = await supabase.from('holdings')
         .insert({ ...input, ticker: input.ticker.toUpperCase(), user_id: userData.user!.id })

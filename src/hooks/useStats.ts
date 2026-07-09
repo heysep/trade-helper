@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { isMockMode, MOCK } from '@/lib/mock';
 import type { Thesis } from '@/types/db';
 
 export interface Stats {
@@ -24,6 +25,7 @@ export function useStats() {
   return useQuery({
     queryKey: ['stats'],
     queryFn: async () => {
+      if (isMockMode()) return computeStats(MOCK.theses);
       const { data, error } = await supabase.from('theses').select('*');
       if (error) throw error;
       return computeStats((data ?? []) as unknown as Thesis[]);

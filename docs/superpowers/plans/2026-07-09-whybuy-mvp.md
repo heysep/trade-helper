@@ -2253,10 +2253,10 @@ Expected: 매치 0건 (exit=1).
 **Interfaces:**
 - Produces: `isMockMode(): boolean` — `EXPO_PUBLIC_USE_MOCK=1` 또는 Supabase env 미설정 시 true. `MOCK: { holdings, theses, checkConditions, checkResults }` — 종목 3개(NVDA·005930 삼성전자·TSLA), 가설 3개(soundness_review 포함), 확인일정 6개, 오늘 점검결과 3개(hold/watch/reduce 각 1). 각 훅 queryFn 첫 줄에서 mock 분기 → 실 Supabase 없이 전 화면 렌더 확인 가능.
 
-- [ ] **Step 1: 실패 테스트** — `isMockMode` env 판정 + MOCK 데이터 shape 검증 (theses[].soundness_review 존재, checkResults 3종 opinion)
-- [ ] **Step 2: 구현** — mock.ts + 훅 분기 (mutation은 mock 모드에서 in-memory push + invalidate)
-- [ ] **Step 3: `npm test && npx tsc --noEmit` PASS**
-- [ ] **Step 4: Commit** — `feat: add mock data mode for frontend preview`
+- [x] **Step 1: 실패 테스트** — `isMockMode` env 판정 + MOCK 데이터 shape 검증 (theses[].soundness_review 존재, checkResults 3종 opinion)
+- [x] **Step 2: 구현** — mock.ts + 훅 분기 (mutation은 mock 모드에서 in-memory push + invalidate)
+- [x] **Step 3: `npm test && npx tsc --noEmit` PASS**
+- [x] **Step 4: Commit** — `feat: add mock data mode for frontend preview`
 
 ---
 
