@@ -1742,7 +1742,7 @@ export default function CalendarScreen() {
 - Produces: HTTP POST `{ market: 'KRX' | 'US' }` (cron 전용, `x-batch-secret` 헤더 = env `BATCH_SECRET` 검증) → `{ scanned, evaluated, skipped, notified }`.
 - 순수 로직 export (테스트 대상): `shouldRunToday(date: Date): boolean` (주말 스킵), `buildScanPrompt`, `buildEvalPrompt`, `decideEval(scan: { change_level: string }): 'skip' | 'eval'`.
 
-- [ ] **Step 1: 실패 테스트**
+- [x] **Step 1: 실패 테스트**
 
 ```ts
 // supabase/functions/tests/batch_test.ts
@@ -1773,7 +1773,7 @@ Deno.test("prompts carry contract", () => {
 });
 ```
 
-- [ ] **Step 2: 실행 → FAIL. 구현:**
+- [x] **Step 2: 실행 → FAIL. 구현:**
 
 ```ts
 // supabase/functions/daily-batch/index.ts
@@ -1901,9 +1901,9 @@ export async function handleBatch(req: Request, deps?: { callFn?: typeof callOpe
 if (import.meta.main) Deno.serve(handleBatch);
 ```
 
-- [ ] **Step 3: 실행 → PASS** — `deno test --allow-env supabase/functions/tests/`
+- [x] **Step 3: 실행 → PASS** — `deno test --allow-env supabase/functions/tests/`
 
-- [ ] **Step 4: Commit** — `git add -A && git commit -m "feat: add daily-batch edge function (2-stage scan/eval, dedup, cost cap)"`
+- [x] **Step 4: Commit** — `git add -A && git commit -m "feat: add daily-batch edge function (2-stage scan/eval, dedup, cost cap)"`
 
 ---
 
