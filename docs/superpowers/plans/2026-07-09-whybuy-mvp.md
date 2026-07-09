@@ -2107,7 +2107,7 @@ export default function ChecksScreen() {
 - Consumes: `useStats` (`Stats`), `useTheses`, `Card`
 - Produces: `StatCallout({ label, value })` — gold `number-display`(Plex). 화면: 상단 콜아웃 그리드(전체/유효/성공/실패/평균 유지일) + 실패 가설 리스트(깨진 조건 = 반복 패턴 기초 데이터).
 
-- [ ] **Step 1: 실패 테스트**
+- [x] **Step 1: 실패 테스트**
 
 ```tsx
 // __tests__/statcallout.test.tsx
@@ -2121,7 +2121,7 @@ it('renders label and value', () => {
 });
 ```
 
-- [ ] **Step 2: 실행 → FAIL. 구현:**
+- [x] **Step 2: 실행 → FAIL. 구현:**
 
 ```tsx
 // src/components/StatCallout.tsx
@@ -2175,9 +2175,9 @@ export default function HistoryScreen() {
 }
 ```
 
-- [ ] **Step 3: `npm test && npx tsc --noEmit` → PASS**
+- [x] **Step 3: `npm test && npx tsc --noEmit` → PASS**
 
-- [ ] **Step 4: Commit** — `git add -A && git commit -m "feat: add history/stats screen with failed-thesis review"`
+- [x] **Step 4: Commit** — `git add -A && git commit -m "feat: add history/stats screen with failed-thesis review"`
 
 ---
 
