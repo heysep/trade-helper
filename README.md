@@ -3,13 +3,11 @@
 투자 가설을 기록하면 AI가 합당성을 검증하고, 확인 일정을 캘린더로 보여주고, 하루 1회 유지/관찰/축소/청산 관점으로 점검해주는 앱.
 투자 자문이 아닌 판단 기록·보조 도구입니다.
 
-## 로컬 실행 (mock 모드 — 백엔드 없이 화면 확인)
+## 로컬 실행
 1. `npm install`
-2. `npx expo start` — Supabase env 없으면 자동으로 mock 데이터 모드로 동작
-3. iOS 시뮬레이터 `i`, Android `a`, 폰은 Expo Go로 QR 스캔
-
-## 실 백엔드 연결
-1. `.env.example` → `.env` 복사, Supabase URL/anon key 입력
+2. `.env.example` → `.env` 복사, Supabase URL/anon key 입력 (필수 — 아래 Supabase 셋업 참고)
+3. `npx expo start`
+4. iOS 시뮬레이터 `i`, Android `a`, 폰은 Expo Go로 QR 스캔
 
 ## Supabase 셋업
 1. supabase.com 프로젝트 생성 → Settings → API에서 URL/anon key 복사

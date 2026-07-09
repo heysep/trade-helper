@@ -1,7 +1,6 @@
 import { Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
-import { isMockMode } from '@/lib/mock';
 import { colors, type, radius, space } from '@/theme';
 
 export function toYahooSymbol(ticker: string, market: 'KRX' | 'US'): string {
@@ -49,7 +48,7 @@ const CHART_H = 120;
 export function PriceChart({ ticker, market }: { ticker: string; market: 'KRX' | 'US' }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['chart', ticker, market],
-    queryFn: () => (isMockMode() ? Promise.resolve(mockSeries(ticker)) : fetchDailyCloses(ticker, market)),
+    queryFn: () => fetchDailyCloses(ticker, market),
     staleTime: 1000 * 60 * 60, // 시세는 표시용 — 1시간 캐시
     retry: 1,
   });
