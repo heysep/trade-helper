@@ -975,7 +975,7 @@ export function useCheckResults(date?: string) {
 **Interfaces:**
 - Produces: 4탭 라우트 `/(tabs)`(종목), `/calendar`(일정), `/checks`(점검), `/history`(히스토리). 다크 탭바(활성=primary, 비활성=muted).
 
-- [ ] **Step 1: 탭 레이아웃 구현**
+- [x] **Step 1: 탭 레이아웃 구현**
 
 ```tsx
 // app/(tabs)/_layout.tsx
@@ -1002,7 +1002,7 @@ export default function TabLayout() {
 }
 ```
 
-- [ ] **Step 2: 4개 화면 골격 생성** (각각 동일 패턴, title만 다름)
+- [x] **Step 2: 4개 화면 골격 생성** (각각 동일 패턴, title만 다름)
 
 ```tsx
 // app/(tabs)/calendar.tsx  (index/checks/history 동일 골격)
@@ -1018,14 +1018,14 @@ export default function CalendarScreen() {
 }
 ```
 
-- [ ] **Step 3: 템플릿 데모 파일 삭제 + 타입체크**
+- [x] **Step 3: 템플릿 데모 파일 삭제 + 타입체크**
 
 ```bash
 rm -f app/(tabs)/explore.tsx
 npx tsc --noEmit && npm test
 ```
 
-- [ ] **Step 4: Commit** — `git add -A && git commit -m "feat: add 4-tab shell (holdings/calendar/checks/history)"`
+- [x] **Step 4: Commit** — `git add -A && git commit -m "feat: add 4-tab shell (holdings/calendar/checks/history)"`
 
 ---
 

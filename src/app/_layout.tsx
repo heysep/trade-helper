@@ -25,7 +25,9 @@ export default function RootLayout() {
           headerStyle: { backgroundColor: colors.canvasDark },
           headerTintColor: colors.onDark,
           contentStyle: { backgroundColor: colors.canvasDark },
-        }} />
+        }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
       </SessionProvider>
     </QueryClientProvider>
   );
