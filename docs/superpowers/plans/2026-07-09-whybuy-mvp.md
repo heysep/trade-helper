@@ -1320,7 +1320,7 @@ export default function NewThesisScreen() {
   - `parseJsonBlock<T>(raw: string): T` — GPT 응답에서 JSON 추출(```json 펜스/전후 텍스트 허용), 실패 시 throw.
   - `gpt-verify` HTTP: POST `{ thesis_id }` (user JWT) → 가설 로드 → 웹검색 검증 → `theses.soundness_review` 업데이트 + `check_conditions` insert → `{ soundness, counterpoints, check_conditions }` 반환.
 
-- [ ] **Step 1: deno 확인 + 실패 테스트**
+- [x] **Step 1: deno 확인 + 실패 테스트**
 
 ```bash
 which deno || brew install deno
@@ -1363,9 +1363,9 @@ Deno.test("parseJsonBlock handles fenced and plain JSON", () => {
 });
 ```
 
-- [ ] **Step 2: 실행 → FAIL 확인** — `deno test --allow-env supabase/functions/tests/openai_test.ts`
+- [x] **Step 2: 실행 → FAIL 확인** — `deno test --allow-env supabase/functions/tests/openai_test.ts`
 
-- [ ] **Step 3: 구현**
+- [x] **Step 3: 구현**
 
 ```ts
 // supabase/functions/_shared/openai.ts
@@ -1496,9 +1496,9 @@ Deno.test("verify prompt contains thesis fields and JSON contract, no advice ton
 
 주: `Deno.serve(handleVerify)`는 테스트 import 시 서버가 뜨므로, 테스트가 걸리면 `if (import.meta.main) Deno.serve(handleVerify);`로 가드한다 — Supabase 배포 환경에선 main으로 실행되므로 동작 동일.
 
-- [ ] **Step 4: 실행 → PASS 확인** — `deno test --allow-env supabase/functions/tests/`
+- [x] **Step 4: 실행 → PASS 확인** — `deno test --allow-env supabase/functions/tests/`
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: add OpenAI wrapper and gpt-verify edge function with tests"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "feat: add OpenAI wrapper and gpt-verify edge function with tests"`
 
 ---
 
