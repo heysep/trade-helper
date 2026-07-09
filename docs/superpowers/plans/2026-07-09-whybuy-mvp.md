@@ -1232,7 +1232,7 @@ git add -A && git commit -m "feat: add holdings screen, TradingView widget, add-
 - Consumes: `useAddThesis`, `TextField`, `PrimaryButton`, `DISCLAIMER`
 - Produces: `validateThesisInput(input): string | null` (에러 메시지 or null) — export해서 테스트. 제출 성공 시 `/thesis/[id]`로 replace 이동(검증은 Task 11에서 그 화면이 트리거).
 
-- [ ] **Step 1: 실패 테스트**
+- [x] **Step 1: 실패 테스트**
 
 ```tsx
 // __tests__/thesisForm.test.tsx
@@ -1245,7 +1245,7 @@ it('requires buy_reason and break_conditions', () => {
 });
 ```
 
-- [ ] **Step 2: 실행 → FAIL. 구현:**
+- [x] **Step 2: 실행 → FAIL. 구현:**
 
 ```tsx
 // app/thesis/new.tsx
@@ -1301,9 +1301,9 @@ export default function NewThesisScreen() {
 }
 ```
 
-- [ ] **Step 3: `npm test && npx tsc --noEmit` → PASS**
+- [x] **Step 3: `npm test && npx tsc --noEmit` → PASS**
 
-- [ ] **Step 4: Commit** — `git add -A && git commit -m "feat: add thesis creation form with validation and disclaimer"`
+- [x] **Step 4: Commit** — `git add -A && git commit -m "feat: add thesis creation form with validation and disclaimer"`
 
 ---
 
