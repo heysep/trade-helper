@@ -1040,9 +1040,9 @@ npx tsc --noEmit && npm test
 - Consumes: `useHoldings`, `useAddHolding`, `useTheses`, `Card`, `StatusBadge`, `PrimaryButton`, `TextField`
 - Produces: `toTVSymbol(ticker: string, market: 'KRX'|'US'): string` (`005930`+`KRX`→`KRX:005930`, `NVDA`+`US`→`NVDA`), `TVChart({ ticker, market, height? })`, `HoldingCard({ holding, latestStatus, onPress })`
 
-- [ ] **Step 1: 설치** — `npx expo install react-native-webview`
+- [x] **Step 1: 설치** — `npx expo install react-native-webview`
 
-- [ ] **Step 2: 실패 테스트**
+- [x] **Step 2: 실패 테스트**
 
 ```ts
 // __tests__/tvchart.test.ts
@@ -1053,7 +1053,7 @@ it('maps KRX and US symbols', () => {
 });
 ```
 
-- [ ] **Step 3: 실행 → FAIL. 구현:**
+- [x] **Step 3: 실행 → FAIL. 구현:**
 
 ```tsx
 // src/components/TVChart.tsx
@@ -1109,7 +1109,7 @@ export function HoldingCard({ holding, latestStatus, onPress }: {
 }
 ```
 
-- [ ] **Step 4: 종목 목록 화면 + 추가 화면**
+- [x] **Step 4: 종목 목록 화면 + 추가 화면**
 
 ```tsx
 // app/(tabs)/index.tsx
@@ -1214,7 +1214,7 @@ export default function NewHoldingScreen() {
 }
 ```
 
-- [ ] **Step 5: `npm test && npx tsc --noEmit` → PASS, Commit**
+- [x] **Step 5: `npm test && npx tsc --noEmit` → PASS, Commit**
 
 ```bash
 git add -A && git commit -m "feat: add holdings screen, TradingView widget, add-holding form"
