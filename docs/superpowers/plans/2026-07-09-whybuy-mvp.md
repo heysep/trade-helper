@@ -438,7 +438,7 @@ export function TextField({ label, value, onChangeText, placeholder, multiline }
 **Interfaces:**
 - Produces: TS 타입 `Holding`, `Thesis`, `CheckCondition`, `DailyScan`, `CheckResult`, `Opinion`, `ChangeLevel` — 이후 모든 훅·엣지펑션이 이 이름을 쓴다. DB 테이블: `profiles, holdings, theses, check_conditions, daily_scans, check_results, usage_daily`.
 
-- [ ] **Step 1: 실패 테스트**
+- [x] **Step 1: 실패 테스트**
 
 ```ts
 // __tests__/dbtypes.test.ts
@@ -449,9 +449,9 @@ it('domain enums', () => {
 });
 ```
 
-- [ ] **Step 2: 실행 → FAIL**
+- [x] **Step 2: 실행 → FAIL**
 
-- [ ] **Step 3: 타입 구현**
+- [x] **Step 3: 타입 구현**
 
 ```ts
 // src/types/db.ts
@@ -489,7 +489,7 @@ export interface CheckResult {
 }
 ```
 
-- [ ] **Step 4: Supabase CLI init + 마이그레이션 SQL**
+- [x] **Step 4: Supabase CLI init + 마이그레이션 SQL**
 
 ```bash
 brew list supabase >/dev/null 2>&1 || brew install supabase/tap/supabase
@@ -617,7 +617,7 @@ create policy "own results" on public.check_results for select
 -- daily_scans/check_results/usage_daily 쓰기는 service role 전용 (Edge Function)
 ```
 
-- [ ] **Step 5: 테스트/타입체크 → PASS, Commit**
+- [x] **Step 5: 테스트/타입체크 → PASS, Commit**
 
 ```bash
 npm test && npx tsc --noEmit
