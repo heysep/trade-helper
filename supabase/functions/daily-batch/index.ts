@@ -81,7 +81,7 @@ export async function handleBatch(req: Request, deps?: { callFn?: typeof callOpe
 
       if (!scan) {
         if (webCalls >= cap) { console.error(`cap reached (${cap}), stopping scans`); break; }
-        const raw = await call({ model: scanModel, input: buildScanPrompt({ ticker, market, name: group.name, today: todayStr }), webSearch: true, maxOutputTokens: 800 });
+        const raw = await call({ model: scanModel, input: buildScanPrompt({ ticker, market, name: group.name, today: todayStr }), webSearch: true, maxOutputTokens: 5000, reasoningEffort: 'low' });
         const parsed = parseJsonBlock<ScanJson>(raw);
         const { data: inserted } = await db.from("daily_scans")
           .insert({ ticker, market, scan_date: todayStr, summary: parsed.summary, change_level: parsed.change_level, sources: parsed.sources })
@@ -99,7 +99,7 @@ export async function handleBatch(req: Request, deps?: { callFn?: typeof callOpe
         let opinion: EvalJson["opinion"] = "hold";
         let rationale = "오늘은 가설을 변경할 만한 새로운 정보가 없습니다.";
         if (decideEval(scan) === "eval") {
-          const raw = await call({ model: evalModel, input: buildEvalPrompt({ buy_reason: t.buy_reason, break_conditions: t.break_conditions, summary: scan.summary, today: todayStr }), maxOutputTokens: 400 });
+          const raw = await call({ model: evalModel, input: buildEvalPrompt({ buy_reason: t.buy_reason, break_conditions: t.break_conditions, summary: scan.summary, today: todayStr }), maxOutputTokens: 2000, reasoningEffort: 'low' });
           const ev = parseJsonBlock<EvalJson>(raw);
           opinion = ev.opinion; rationale = ev.rationale; evaluated++; evalCalls++;
           await db.from("usage_daily").update({ eval_calls: evalCalls }).eq("usage_date", todayStr);

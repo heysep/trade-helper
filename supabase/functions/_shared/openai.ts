@@ -1,5 +1,6 @@
 export interface CallOpts {
-  model: string; input: string; webSearch?: boolean; maxOutputTokens?: number; fetchFn?: typeof fetch;
+  model: string; input: string; webSearch?: boolean; maxOutputTokens?: number;
+  reasoningEffort?: 'low' | 'medium' | 'high'; fetchFn?: typeof fetch;
 }
 
 interface ResponsesOutput {
@@ -14,8 +15,10 @@ export async function callOpenAI(opts: CallOpts): Promise<string> {
   const body: Record<string, unknown> = {
     model: opts.model,
     input: opts.input,
-    max_output_tokens: opts.maxOutputTokens ?? 1200,
+    // reasoning 모델은 reasoning 토큰도 이 한도에 포함 — 넉넉히
+    max_output_tokens: opts.maxOutputTokens ?? 4000,
   };
+  if (opts.reasoningEffort) body.reasoning = { effort: opts.reasoningEffort };
   if (opts.webSearch) body.tools = [{ type: "web_search" }];
   const res = await f("https://api.openai.com/v1/responses", {
     method: "POST",

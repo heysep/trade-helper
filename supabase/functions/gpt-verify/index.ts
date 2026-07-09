@@ -41,7 +41,7 @@ export async function handleVerify(req: Request, deps?: { callFn?: typeof callOp
         buy_reason: thesis.buy_reason, break_conditions: thesis.break_conditions,
         target_horizon: thesis.target_horizon, today: new Date().toISOString().slice(0, 10),
       }),
-      webSearch: true, maxOutputTokens: 1500,
+      webSearch: true, maxOutputTokens: 6000, reasoningEffort: 'low',
     });
     const result = parseJsonBlock<VerifyResult>(raw);
 
