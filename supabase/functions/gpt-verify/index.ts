@@ -19,10 +19,17 @@ export function buildVerifyPrompt(p: { name: string; ticker: string; market: str
 {"soundness":"가설의 논리 타당성 평가와 빠진 관점 (한국어 3-5문장)","counterpoints":["가설이 깨질 수 있는 시나리오 2-4개"],"check_conditions":[{"label":"확인 항목","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}`;
 }
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 export async function handleVerify(req: Request, deps?: { callFn?: typeof callOpenAI }): Promise<Response> {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   try {
     const { thesis_id } = await req.json();
-    if (!thesis_id) return new Response(JSON.stringify({ error: "thesis_id required" }), { status: 400 });
+    if (!thesis_id) return new Response(JSON.stringify({ error: "thesis_id required" }), { status: 400, headers: CORS_HEADERS });
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -31,7 +38,7 @@ export async function handleVerify(req: Request, deps?: { callFn?: typeof callOp
     );
     const { data: thesis, error } = await supabase
       .from("theses").select("*, holdings!inner(name, ticker, market)").eq("id", thesis_id).single();
-    if (error || !thesis) return new Response(JSON.stringify({ error: "thesis not found" }), { status: 404 });
+    if (error || !thesis) return new Response(JSON.stringify({ error: "thesis not found" }), { status: 404, headers: CORS_HEADERS });
 
     const call = deps?.callFn ?? callOpenAI;
     const raw = await call({
@@ -53,9 +60,9 @@ export async function handleVerify(req: Request, deps?: { callFn?: typeof callOp
         result.check_conditions.map((c) => ({ thesis_id, label: c.label, event_type: c.event_type, next_check_date: c.next_check_date })),
       );
     }
-    return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500 });
+    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: CORS_HEADERS });
   }
 }
 

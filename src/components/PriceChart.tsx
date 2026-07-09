@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { colors, type, radius, space } from '@/theme';
@@ -59,7 +59,9 @@ export function PriceChart({ ticker, market }: { ticker: string; market: 'KRX' |
   if (isError || !data) {
     return (
       <View style={{ height: 60, borderRadius: radius.lg, backgroundColor: colors.surfaceCardDark, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={[type.caption, { color: colors.muted }]}>차트 데이터를 불러오지 못했습니다</Text>
+        <Text style={[type.caption, { color: colors.muted }]}>
+          {Platform.OS === 'web' ? '차트는 모바일 앱에서 지원됩니다' : '차트 데이터를 불러오지 못했습니다'}
+        </Text>
       </View>
     );
   }
