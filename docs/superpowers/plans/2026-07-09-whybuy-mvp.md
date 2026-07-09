@@ -2243,6 +2243,23 @@ Expected: 매치 0건 (exit=1).
 
 ---
 
+### Task 18: Mock 데이터 모드 (프론트 확인용)
+
+**Files:**
+- Create: `src/lib/mock.ts` (mock 데이터셋 + 활성 판단)
+- Modify: `src/hooks/*.ts` (mock 모드 분기), `.env.example` (`EXPO_PUBLIC_USE_MOCK`)
+- Test: `__tests__/mock.test.ts`
+
+**Interfaces:**
+- Produces: `isMockMode(): boolean` — `EXPO_PUBLIC_USE_MOCK=1` 또는 Supabase env 미설정 시 true. `MOCK: { holdings, theses, checkConditions, checkResults }` — 종목 3개(NVDA·005930 삼성전자·TSLA), 가설 3개(soundness_review 포함), 확인일정 6개, 오늘 점검결과 3개(hold/watch/reduce 각 1). 각 훅 queryFn 첫 줄에서 mock 분기 → 실 Supabase 없이 전 화면 렌더 확인 가능.
+
+- [ ] **Step 1: 실패 테스트** — `isMockMode` env 판정 + MOCK 데이터 shape 검증 (theses[].soundness_review 존재, checkResults 3종 opinion)
+- [ ] **Step 2: 구현** — mock.ts + 훅 분기 (mutation은 mock 모드에서 in-memory push + invalidate)
+- [ ] **Step 3: `npm test && npx tsc --noEmit` PASS**
+- [ ] **Step 4: Commit** — `feat: add mock data mode for frontend preview`
+
+---
+
 ## Self-Review 기록
 
 - **스펙 커버리지**: 종목등록(T8), 가설등록+검증(T9-11), 캘린더(T12), 2단계 데일리 점검+비용레버 6개(T13: 디둡·스킵·티어링·주말스킵·출력캡·cap / 5종목 상한 T4), 히스토리·통계(T16), 푸시(T13-14), 면책 톤(T2·T9·T13·T15), TradingView 위젯(T8). 커버 완료.
