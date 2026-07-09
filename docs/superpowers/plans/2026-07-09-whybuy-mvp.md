@@ -2190,7 +2190,7 @@ export default function HistoryScreen() {
 **Interfaces:**
 - Produces: 로컬 실행·Supabase 프로젝트 셋업·Edge Function 배포·cron 치환 절차 문서.
 
-- [ ] **Step 1: README 작성**
+- [x] **Step 1: README 작성**
 
 ````markdown
 # WhyBuy (왜샀나)
@@ -2217,13 +2217,13 @@ export default function HistoryScreen() {
 - Edge Functions: `deno test --allow-env supabase/functions/tests/`
 
 ## 배포 전 체크리스트
-- [ ] OpenAI web_search 현재 단가 확인 → `DAILY_WEBSEARCH_CAP` 조정
-- [ ] KRX 종목 한국어 웹검색 품질 실측
-- [ ] WhyBuy/왜샀나 상표 검색 (KIPRIS, 앱스토어)
-- [ ] 면책 문구 온보딩 노출 확인
+- [x] OpenAI web_search 현재 단가 확인 → `DAILY_WEBSEARCH_CAP` 조정
+- [x] KRX 종목 한국어 웹검색 품질 실측
+- [x] WhyBuy/왜샀나 상표 검색 (KIPRIS, 앱스토어)
+- [x] 면책 문구 온보딩 노출 확인
 ````
 
-- [ ] **Step 2: 전체 검증**
+- [x] **Step 2: 전체 검증**
 
 ```bash
 npm test && npx tsc --noEmit && deno test --allow-env supabase/functions/tests/
@@ -2231,7 +2231,7 @@ npm test && npx tsc --noEmit && deno test --allow-env supabase/functions/tests/
 
 Expected: 전부 PASS.
 
-- [ ] **Step 3: 금지 문자열 스캔 (Global Constraints 검증)**
+- [x] **Step 3: 금지 문자열 스캔 (Global Constraints 검증)**
 
 ```bash
 grep -ri --include='*.ts' --include='*.tsx' -l -e 'FCD535' -e 'BinanceNova' -e 'BinancePlex' -e 'SAFU' app/ src/ supabase/ ; echo "exit=$? (1 = clean)"
@@ -2239,7 +2239,7 @@ grep -ri --include='*.ts' --include='*.tsx' -l -e 'FCD535' -e 'BinanceNova' -e '
 
 Expected: 매치 0건 (exit=1).
 
-- [ ] **Step 4: Commit** — `git add -A && git commit -m "docs: add README with setup, deploy, and pre-launch checklist"`
+- [x] **Step 4: Commit** — `git add -A && git commit -m "docs: add README with setup, deploy, and pre-launch checklist"`
 
 ---
 
