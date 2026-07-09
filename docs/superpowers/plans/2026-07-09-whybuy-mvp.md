@@ -2014,7 +2014,7 @@ useEffect(() => { registerPushToken(); }, []);
 - Consumes: `useCheckResults`, `StatusBadge`, `Card`
 - Produces: `CheckResultCard({ item, onPress })` — 상단 종목명+StatusBadge, 본문 rationale.
 
-- [ ] **Step 1: 실패 테스트**
+- [x] **Step 1: 실패 테스트**
 
 ```tsx
 // __tests__/checkresult.test.tsx
@@ -2035,7 +2035,7 @@ it('renders name, badge, rationale', () => {
 });
 ```
 
-- [ ] **Step 2: 실행 → FAIL. 구현:**
+- [x] **Step 2: 실행 → FAIL. 구현:**
 
 ```tsx
 // src/components/CheckResultCard.tsx
@@ -2090,9 +2090,9 @@ export default function ChecksScreen() {
 }
 ```
 
-- [ ] **Step 3: `npm test && npx tsc --noEmit` → PASS**
+- [x] **Step 3: `npm test && npx tsc --noEmit` → PASS**
 
-- [ ] **Step 4: Commit** — `git add -A && git commit -m "feat: add daily check results screen"`
+- [x] **Step 4: Commit** — `git add -A && git commit -m "feat: add daily check results screen"`
 
 ---
 
