@@ -1917,7 +1917,7 @@ if (import.meta.main) Deno.serve(handleBatch);
 **Interfaces:**
 - Produces: cron 2개(KRX 08:00 UTC = 17:00 KST, US 22:00 UTC ≈ 17~18:00 ET / 평일). `registerPushToken(): Promise<void>` — 권한 요청 → expo push token → `profiles.expo_push_token` 업데이트. 실패해도 throw 안 함(푸시는 선택 기능).
 
-- [ ] **Step 1: cron SQL**
+- [x] **Step 1: cron SQL**
 
 ```sql
 -- supabase/migrations/0002_cron.sql
@@ -1942,7 +1942,7 @@ select cron.schedule('whybuy-daily-us', '0 22 * * 1-5', $$
 $$);
 ```
 
-- [ ] **Step 2: 설치 + 실패 테스트**
+- [x] **Step 2: 설치 + 실패 테스트**
 
 ```bash
 npx expo install expo-notifications expo-device expo-constants
@@ -1964,7 +1964,7 @@ it('resolves without throwing on simulator/denied permission', async () => {
 });
 ```
 
-- [ ] **Step 3: 실행 → FAIL. 구현:**
+- [x] **Step 3: 실행 → FAIL. 구현:**
 
 ```ts
 // src/lib/push.ts
@@ -1997,9 +1997,9 @@ import { registerPushToken } from '../src/lib/push';
 useEffect(() => { registerPushToken(); }, []);
 ```
 
-- [ ] **Step 4: `npm test && npx tsc --noEmit` → PASS**
+- [x] **Step 4: `npm test && npx tsc --noEmit` → PASS**
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: add pg_cron schedules and push token registration"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "feat: add pg_cron schedules and push token registration"`
 
 ---
 
