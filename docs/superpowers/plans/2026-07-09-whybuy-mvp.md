@@ -127,7 +127,7 @@ git add -A && git commit -m "chore: scaffold Expo TypeScript app with jest-expo"
 **Interfaces:**
 - Produces: `BRAND = { appName: 'WhyBuy', appNameKo: '왜샀나' }`, `DISCLAIMER: string`, `colors.{primary,canvasDark,surfaceCardDark,...}`, `type.{heroDisplay,...}: TextStyle`, `space.{xxs..section}: number`, `radius.{xs..pill}: number`, `fontFamilies = { sans: 'Inter_400Regular', ... }`.
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
 
 ```ts
 // __tests__/theme.test.ts
@@ -164,9 +164,9 @@ describe('design tokens', () => {
 });
 ```
 
-- [ ] **Step 2: 실행 → FAIL 확인** (`npm test` — module not found)
+- [x] **Step 2: 실행 → FAIL 확인** (`npm test` — module not found)
 
-- [ ] **Step 3: 구현**
+- [x] **Step 3: 구현**
 
 ```ts
 // src/constants/brand.ts
@@ -229,7 +229,7 @@ export { type, fontFamilies } from './typography';
 export { space, radius } from './spacing';
 ```
 
-- [ ] **Step 4: 폰트 설치 + 루트 레이아웃 로드**
+- [x] **Step 4: 폰트 설치 + 루트 레이아웃 로드**
 
 ```bash
 npx expo install expo-font @expo-google-fonts/inter @expo-google-fonts/ibm-plex-mono expo-splash-screen
@@ -263,7 +263,7 @@ export default function RootLayout() {
 }
 ```
 
-- [ ] **Step 5: 테스트/타입체크 → PASS 확인 후 Commit**
+- [x] **Step 5: 테스트/타입체크 → PASS 확인 후 Commit**
 
 ```bash
 npm test && npx tsc --noEmit
