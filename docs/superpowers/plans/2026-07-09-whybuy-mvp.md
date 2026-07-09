@@ -286,7 +286,7 @@ git add -A && git commit -m "feat: add brand constants, design tokens, and font 
   - `Card({ children, mode?: 'dark'|'light', style? })`
   - `TextField({ label, value, onChangeText, placeholder?, multiline? })` — light 폼용
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
 
 ```tsx
 // __tests__/components.test.tsx
@@ -326,9 +326,9 @@ describe('TextField', () => {
 });
 ```
 
-- [ ] **Step 2: 실행 → FAIL 확인**
+- [x] **Step 2: 실행 → FAIL 확인**
 
-- [ ] **Step 3: 구현**
+- [x] **Step 3: 구현**
 
 ```tsx
 // src/components/PrimaryButton.tsx
@@ -423,9 +423,9 @@ export function TextField({ label, value, onChangeText, placeholder, multiline }
 }
 ```
 
-- [ ] **Step 4: `npm test && npx tsc --noEmit` → PASS**
+- [x] **Step 4: `npm test && npx tsc --noEmit` → PASS**
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: add core UI components (button, badge, card, textfield)"`
+- [x] **Step 5: Commit** — `git add -A && git commit -m "feat: add core UI components (button, badge, card, textfield)"`
 
 ---
 
