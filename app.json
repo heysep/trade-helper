@@ -5,11 +5,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "whybuytmp",
+    "scheme": "whybuy",
     "userInterfaceStyle": "automatic",
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
+    "ios": {},
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -28,7 +26,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#0b0e11",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
@@ -38,6 +36,10 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "splash": {
+      "backgroundColor": "#0b0e11",
+      "image": "./assets/images/splash-icon.png"
     }
   }
 }
