@@ -122,7 +122,7 @@ export default function ThesisDetailScreen() {
   const startRecheck = () => {
     preview.mutate(id!, {
       onSuccess: (r) => setPendingResult(r),
-      onError: (e) => Alert.alert('점검 실패', e.message),
+      onError: (e) => Alert.alert('AI 검증 실패', e.message),
     });
   };
   const confirmOverwrite = () => {
@@ -151,7 +151,7 @@ export default function ThesisDetailScreen() {
 
       {justVerified ? (
         <View style={{ backgroundColor: colors.tradingUp + '26', borderRadius: 8, paddingVertical: 8, alignItems: 'center', marginBottom: space.sm }}>
-          <Text style={[type.titleSm, { color: colors.tradingUp }]}>AI 점검 완료 — AI 분석 탭에서 확인하세요</Text>
+          <Text style={[type.titleSm, { color: colors.tradingUp }]}>AI 검증 완료 — AI 분석 탭에서 확인하세요</Text>
         </View>
       ) : null}
 
@@ -169,7 +169,7 @@ export default function ThesisDetailScreen() {
       {/* ── 재점검 미리보기 ── */}
       {pendingResult ? (
         <Card style={{ marginBottom: space.md, borderWidth: 1, borderColor: colors.primary }}>
-          <Text style={[type.titleMd, { color: colors.primary, marginBottom: space.md }]}>새 점검 결과 (아직 저장 안 됨)</Text>
+          <Text style={[type.titleMd, { color: colors.primary, marginBottom: space.md }]}>새 검증 결과 (아직 저장 안 됨)</Text>
           <View style={{ alignItems: 'center', marginBottom: space.md }}>
             <ScoreRing score={pendingResult.score} />
             {pendingResult.summary ? (
@@ -266,7 +266,7 @@ export default function ThesisDetailScreen() {
             {!pendingResult ? (
               <Pressable onPress={startRecheck} disabled={preview.isPending}>
                 <Text style={[type.button, { color: colors.mutedStrong, textAlign: 'center', paddingVertical: space.xs }]}>
-                  {preview.isPending ? '다시 점검 중… (기존 결과는 그대로)' : '다시 점검하기'}
+                  {preview.isPending ? 'AI 검증 중… (기존 결과는 그대로)' : 'AI 재검증'}
                 </Text>
               </Pressable>
             ) : null}
@@ -274,13 +274,13 @@ export default function ThesisDetailScreen() {
         ) : verify.isPending ? (
           <Card style={{ alignItems: 'center', paddingVertical: space.xl }}>
             <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={[type.titleSm, { color: colors.onDark, marginTop: space.md }]}>AI가 가설을 점검하고 있어요</Text>
+            <Text style={[type.titleSm, { color: colors.onDark, marginTop: space.md }]}>AI가 가설을 검증하고 있어요</Text>
             <Text style={[type.bodySm, { color: colors.muted, marginTop: space.xxs, textAlign: 'center' }]}>
               웹에서 최신 자료를 찾는 중입니다{'\n'}30초~1분 30초 정도 걸려요. 나갔다 와도 돼요.
             </Text>
           </Card>
         ) : (
-          <PrimaryButton title="AI 가설 점검 시작" onPress={() => verify.mutate(id!, { onError: (e) => Alert.alert('점검 실패', e.message) })} />
+          <PrimaryButton title="AI 검증 시작" onPress={() => verify.mutate(id!, { onError: (e) => Alert.alert('AI 검증 실패', e.message) })} />
         )
       ) : null}
 
@@ -288,7 +288,7 @@ export default function ThesisDetailScreen() {
       {tab === 'watch' ? (
         <Card>
           {(conditions ?? []).length === 0 ? (
-            <Text style={[type.bodyMd, { color: colors.muted }]}>감시 중인 항목이 없어요. AI 점검을 실행하면 자동으로 추가돼요.</Text>
+            <Text style={[type.bodyMd, { color: colors.muted }]}>감시 중인 항목이 없어요. AI 검증을 실행하면 자동으로 추가돼요.</Text>
           ) : (
             <>
               {(conditions ?? []).map((c) => {
