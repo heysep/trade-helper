@@ -38,7 +38,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-/** 후보 문장 + 채택 버튼 행 */
 function AdoptRow({ text, color, adopted, onAdopt }: { text: string; color: string; adopted: boolean; onAdopt: () => void }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: space.xs }}>
@@ -52,6 +51,13 @@ function AdoptRow({ text, color, adopted, onAdopt }: { text: string; color: stri
   );
 }
 
+type Tab = 'ai' | 'watch' | 'mine';
+const TABS: Array<{ key: Tab; label: string }> = [
+  { key: 'ai', label: 'AI 분석' },
+  { key: 'watch', label: '감시 항목' },
+  { key: 'mine', label: '내 가설' },
+];
+
 export default function ThesisDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: thesis, isLoading } = useThesis(id!);
@@ -64,12 +70,12 @@ export default function ThesisDetailScreen() {
   const close = useCloseThesis();
   const autoStarted = useRef(false);
   const [pendingResult, setPendingResult] = useState<VerifyResult | null>(null);
+  const [tab, setTab] = useState<Tab>('ai');
 
-  // 등록 직후 진입하면 자동으로 AI 점검 시작
   useEffect(() => {
     if (thesis && !thesis.soundness_review && thesis.status !== 'closed' && !autoStarted.current && !verify.isPending) {
       autoStarted.current = true;
-      verify.mutate(id!, { onError: () => { /* 실패 시 수동 버튼 노출됨 */ } });
+      verify.mutate(id!, { onError: () => {} });
     }
   }, [thesis, id, verify]);
 
@@ -103,22 +109,30 @@ export default function ThesisDetailScreen() {
     ((field === 'break_conditions' ? thesis.break_conditions : thesis.add_conditions) ?? '').includes(text);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.canvasDark }} contentContainerStyle={{ padding: space.md }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.canvasDark }} contentContainerStyle={{ padding: space.md, paddingBottom: space.xxl }}>
       <Stack.Screen options={{ title: holding ? `${holding.name} 가설` : '가설' }} />
-      {holding && <View style={{ marginBottom: space.lg }}><PriceChart ticker={holding.ticker} market={holding.market} /></View>}
+      {holding && <View style={{ marginBottom: space.md }}><PriceChart ticker={holding.ticker} market={holding.market} /></View>}
 
-      {/* ── 재점검 미리보기 (저장 전) ── */}
+      {/* ── 점수 히어로 (고정 상단) ── */}
+      {review && typeof review.score === 'number' ? (
+        <View style={{ alignItems: 'center', marginBottom: space.md }}>
+          <ScoreRing score={review.score} />
+          {review.summary ? (
+            <Text style={[type.titleSm, { color: colors.onDark, textAlign: 'center', marginTop: space.sm }]}>{review.summary}</Text>
+          ) : null}
+          <Text style={[type.caption, { color: colors.muted, marginTop: 2 }]}>AI의 주관적 점수 · 참고용</Text>
+        </View>
+      ) : null}
+
+      {/* ── 재점검 미리보기 ── */}
       {pendingResult ? (
-        <Card style={{ marginBottom: space.lg, borderWidth: 1, borderColor: colors.primary }}>
+        <Card style={{ marginBottom: space.md, borderWidth: 1, borderColor: colors.primary }}>
           <Text style={[type.titleMd, { color: colors.primary, marginBottom: space.md }]}>새 점검 결과 (아직 저장 안 됨)</Text>
           <View style={{ alignItems: 'center', marginBottom: space.md }}>
             <ScoreRing score={pendingResult.score} />
             {pendingResult.summary ? (
               <Text style={[type.titleSm, { color: colors.onDark, textAlign: 'center', marginTop: space.md }]}>{pendingResult.summary}</Text>
             ) : null}
-            <View style={{ flexDirection: 'row', gap: space.xs, marginTop: space.sm, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {pendingResult.reason_reviews.map((r, i) => <VerdictBadge key={i} verdict={r.verdict} />)}
-            </View>
           </View>
           <PrimaryButton title={applyVerify.isPending ? '저장 중…' : '이 결과로 덮어쓰기'} disabled={applyVerify.isPending} onPress={confirmOverwrite} />
           <Pressable onPress={() => setPendingResult(null)} disabled={applyVerify.isPending}>
@@ -127,130 +141,138 @@ export default function ThesisDetailScreen() {
         </Card>
       ) : null}
 
-      {/* ── AI 점검 결과 (맨 위) ── */}
-      {review ? (
-        <Card style={{ marginBottom: space.lg }}>
-          <Text style={[type.titleMd, { color: colors.onDark, marginBottom: space.md }]}>AI 점검 결과</Text>
+      {/* ── 탭 ── */}
+      <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceCardDark, borderRadius: radius.lg, padding: 4, marginBottom: space.md }}>
+        {TABS.map((t) => (
+          <Pressable key={t.key} onPress={() => setTab(t.key)}
+            style={{ flex: 1, paddingVertical: 8, borderRadius: radius.md, alignItems: 'center',
+              backgroundColor: tab === t.key ? colors.surfaceElevatedDark : 'transparent' }}>
+            <Text style={[type.titleSm, { color: tab === t.key ? colors.primary : colors.muted }]}>{t.label}</Text>
+          </Pressable>
+        ))}
+      </View>
 
-          {typeof review.score === 'number' ? (
-            <View style={{ alignItems: 'center', marginBottom: space.lg }}>
-              <ScoreRing score={review.score} />
-              {review.summary ? (
-                <Text style={[type.titleSm, { color: colors.onDark, textAlign: 'center', marginTop: space.md }]}>{review.summary}</Text>
-              ) : null}
-              <Text style={[type.caption, { color: colors.muted, marginTop: space.xs }]}>AI의 주관적 점수 · 참고용</Text>
-            </View>
-          ) : null}
-
-          {(review.reason_reviews ?? []).map((r, i) => (
-            <View key={i} style={{ marginBottom: space.md, paddingBottom: space.md, borderBottomWidth: 1, borderBottomColor: colors.hairlineOnDark }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.xxs }}>
-                <Text style={[type.titleSm, { color: colors.onDark, flex: 1, marginRight: space.xs }]}>{r.reason}</Text>
-                <VerdictBadge verdict={r.verdict} />
-              </View>
-              <Text style={[type.bodyMd, { color: colors.body }]}>{r.comment}</Text>
-            </View>
-          ))}
-
-          {!review.reason_reviews && review.soundness ? (
-            <Text style={[type.bodyMd, { color: colors.body, marginBottom: space.md }]}>{review.soundness}</Text>
-          ) : null}
-
-          {(review.missing_points ?? []).length > 0 ? (
-            <Section title="놓치고 있는 관점">
-              {review.missing_points!.map((m, i) => (
-                <Text key={i} style={[type.bodyMd, { color: colors.statusWatch, marginBottom: space.xxs }]}>· {m}</Text>
-              ))}
-            </Section>
-          ) : null}
-
-          <Section title="가설이 깨질 수 있는 경우 — 채택하면 '깨지는 조건'에 추가돼요">
-            {review.counterpoints.map((c, i) => (
-              <AdoptRow key={i} text={c} color={colors.tradingDown}
-                adopted={isAdopted('break_conditions', c)} onAdopt={() => adopt('break_conditions', c)} />
-            ))}
-          </Section>
-
-          {(review.add_candidates ?? []).length > 0 ? (
-            <Section title="추가매수 조건 후보 — 채택하면 '추가매수 조건'에 추가돼요">
-              {review.add_candidates!.map((a, i) => (
-                <AdoptRow key={i} text={a} color={colors.body}
-                  adopted={isAdopted('add_conditions', a)} onAdopt={() => adopt('add_conditions', a)} />
-              ))}
-            </Section>
-          ) : null}
-
-          {!pendingResult ? (
-            <Pressable onPress={startRecheck} disabled={preview.isPending}>
-              <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>
-                {preview.isPending ? '다시 점검 중… (기존 결과는 그대로 있어요)' : '다시 점검하기'}
-              </Text>
-            </Pressable>
-          ) : null}
-        </Card>
-      ) : verify.isPending ? (
-        <Card style={{ marginBottom: space.lg, alignItems: 'center', paddingVertical: space.xl }}>
-          <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={[type.titleSm, { color: colors.onDark, marginTop: space.md }]}>AI가 가설을 점검하고 있어요</Text>
-          <Text style={[type.bodySm, { color: colors.muted, marginTop: space.xxs, textAlign: 'center' }]}>
-            웹에서 최신 자료를 찾는 중입니다{'\n'}30초~1분 30초 정도 걸려요. 기다리는 동안 나가도 괜찮아요.
-          </Text>
-        </Card>
-      ) : (
-        <View style={{ marginBottom: space.lg }}>
-          <PrimaryButton title="AI 가설 점검 시작" onPress={() => verify.mutate(id!, { onError: (e) => Alert.alert('점검 실패', e.message) })} />
-        </View>
-      )}
-
-      {/* ── 감시 중인 항목 ── */}
-      {(conditions ?? []).length > 0 ? (
-        <Card style={{ marginBottom: space.lg }}>
-          <Text style={[type.titleMd, { color: colors.onDark, marginBottom: space.sm }]}>감시 중인 항목</Text>
-          {(conditions ?? []).map((c) => {
-            const meta = STATE_META[c.condition_state] ?? STATE_META.ok;
-            return (
-              <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: space.xs, borderBottomWidth: 1, borderBottomColor: colors.hairlineOnDark }}>
-                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: meta.color + '26', alignItems: 'center', justifyContent: 'center', marginRight: space.sm }}>
-                  <Text style={{ color: meta.color, fontSize: 12, fontWeight: '700' }}>{meta.icon}</Text>
+      {/* ── AI 분석 탭 ── */}
+      {tab === 'ai' ? (
+        review ? (
+          <Card>
+            {(review.reason_reviews ?? []).map((r, i) => (
+              <View key={i} style={{ marginBottom: space.md, paddingBottom: space.md, borderBottomWidth: 1, borderBottomColor: colors.hairlineOnDark }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.xxs }}>
+                  <Text style={[type.titleSm, { color: colors.onDark, flex: 1, marginRight: space.xs }]}>{r.reason}</Text>
+                  <VerdictBadge verdict={r.verdict} />
                 </View>
-                <Text style={[type.bodyMd, { color: c.condition_state === 'broken' ? colors.tradingDown : colors.body, flex: 1 }]} numberOfLines={2}>{c.label}</Text>
-                {c.source === 'user' ? <Text style={[type.caption, { color: colors.muted, marginLeft: space.xs }]}>내 선택</Text> : null}
-                <Text style={[type.caption, { color: meta.color, marginLeft: space.xs }]}>{meta.label}</Text>
+                <Text style={[type.bodyMd, { color: colors.body }]}>{r.comment}</Text>
               </View>
-            );
-          })}
-          <Text style={[type.caption, { color: colors.muted, marginTop: space.xs }]}>매일 점검 때 깨짐 여부를 자동으로 추적해요</Text>
+            ))}
+            {!review.reason_reviews && review.soundness ? (
+              <Text style={[type.bodyMd, { color: colors.body, marginBottom: space.md }]}>{review.soundness}</Text>
+            ) : null}
+            {(review.missing_points ?? []).length > 0 ? (
+              <Section title="놓치고 있는 관점">
+                {review.missing_points!.map((m, i) => (
+                  <Text key={i} style={[type.bodyMd, { color: colors.statusWatch, marginBottom: space.xxs }]}>· {m}</Text>
+                ))}
+              </Section>
+            ) : null}
+            <Section title="가설이 깨질 수 있는 경우 — 채택하면 '깨지는 조건'에 추가">
+              {review.counterpoints.map((c, i) => (
+                <AdoptRow key={i} text={c} color={colors.tradingDown}
+                  adopted={isAdopted('break_conditions', c)} onAdopt={() => adopt('break_conditions', c)} />
+              ))}
+            </Section>
+            {(review.add_candidates ?? []).length > 0 ? (
+              <Section title="추가매수 조건 후보 — 채택하면 '추가매수 조건'에 추가">
+                {review.add_candidates!.map((a, i) => (
+                  <AdoptRow key={i} text={a} color={colors.body}
+                    adopted={isAdopted('add_conditions', a)} onAdopt={() => adopt('add_conditions', a)} />
+                ))}
+              </Section>
+            ) : null}
+            {!pendingResult ? (
+              <Pressable onPress={startRecheck} disabled={preview.isPending}>
+                <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>
+                  {preview.isPending ? '다시 점검 중… (기존 결과는 그대로)' : '다시 점검하기'}
+                </Text>
+              </Pressable>
+            ) : null}
+          </Card>
+        ) : verify.isPending ? (
+          <Card style={{ alignItems: 'center', paddingVertical: space.xl }}>
+            <ActivityIndicator color={colors.primary} size="large" />
+            <Text style={[type.titleSm, { color: colors.onDark, marginTop: space.md }]}>AI가 가설을 점검하고 있어요</Text>
+            <Text style={[type.bodySm, { color: colors.muted, marginTop: space.xxs, textAlign: 'center' }]}>
+              웹에서 최신 자료를 찾는 중입니다{'\n'}30초~1분 30초 정도 걸려요. 나갔다 와도 돼요.
+            </Text>
+          </Card>
+        ) : (
+          <PrimaryButton title="AI 가설 점검 시작" onPress={() => verify.mutate(id!, { onError: (e) => Alert.alert('점검 실패', e.message) })} />
+        )
+      ) : null}
+
+      {/* ── 감시 항목 탭 ── */}
+      {tab === 'watch' ? (
+        <Card>
+          {(conditions ?? []).length === 0 ? (
+            <Text style={[type.bodyMd, { color: colors.muted }]}>감시 중인 항목이 없어요. AI 점검을 실행하면 자동으로 추가돼요.</Text>
+          ) : (
+            <>
+              {(conditions ?? []).map((c) => {
+                const meta = STATE_META[c.condition_state] ?? STATE_META.ok;
+                return (
+                  <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: space.sm, borderBottomWidth: 1, borderBottomColor: colors.hairlineOnDark }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: meta.color + '26', alignItems: 'center', justifyContent: 'center', marginRight: space.sm }}>
+                      <Text style={{ color: meta.color, fontSize: 12, fontWeight: '700' }}>{meta.icon}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[type.bodyMd, { color: c.condition_state === 'broken' ? colors.tradingDown : colors.body }]} numberOfLines={2}>{c.label}</Text>
+                      {c.next_check_date ? (
+                        <Text style={[type.numberSm, { color: colors.muted, marginTop: 1 }]}>{c.next_check_date.replaceAll('-', '.')}</Text>
+                      ) : null}
+                    </View>
+                    {c.source === 'user' ? <Text style={[type.caption, { color: colors.muted, marginLeft: space.xs }]}>내 선택</Text> : null}
+                    <Text style={[type.caption, { color: meta.color, marginLeft: space.xs }]}>{meta.label}</Text>
+                  </View>
+                );
+              })}
+              <Text style={[type.caption, { color: colors.muted, marginTop: space.sm }]}>매일 점검 때 깨짐 여부를 자동으로 추적해요</Text>
+            </>
+          )}
         </Card>
       ) : null}
 
-      {/* ── 내 가설 내용 ── */}
-      <Card style={{ marginBottom: space.lg }}>
-        <Section title="매수 이유">
-          <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.buy_reason}</Text>
-        </Section>
-        <Section title="깨지는 조건">
-          <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.break_conditions}</Text>
-        </Section>
-        {thesis.add_conditions ? (
-          <Section title="추가매수 조건">
-            <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.add_conditions}</Text>
-          </Section>
-        ) : null}
-        <Section title="목표 보유 기간">
-          <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.target_horizon}</Text>
-        </Section>
-      </Card>
+      {/* ── 내 가설 탭 ── */}
+      {tab === 'mine' ? (
+        <>
+          <Card style={{ marginBottom: space.md }}>
+            <Section title="매수 이유">
+              <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.buy_reason}</Text>
+            </Section>
+            <Section title="깨지는 조건">
+              <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.break_conditions}</Text>
+            </Section>
+            {thesis.add_conditions ? (
+              <Section title="추가매수 조건">
+                <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.add_conditions}</Text>
+              </Section>
+            ) : null}
+            <Section title="목표 보유 기간">
+              <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.target_horizon}</Text>
+            </Section>
+          </Card>
+          {thesis.status !== 'closed' ? (
+            <Pressable onPress={confirmClose} disabled={close.isPending}
+              style={{ alignItems: 'center', paddingVertical: space.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.hairlineOnDark }}>
+              <Text style={[type.button, { color: colors.mutedStrong }]}>{close.isPending ? '기록 중…' : '가설 종료 (성공/실패 기록)'}</Text>
+            </Pressable>
+          ) : (
+            <Text style={[type.titleSm, { color: thesis.outcome === 'success' ? colors.tradingUp : colors.tradingDown, textAlign: 'center' }]}>
+              {thesis.outcome === 'success' ? '성공으로 종료된 가설' : '실패로 종료된 가설'} · 히스토리에서 복기
+            </Text>
+          )}
+        </>
+      ) : null}
 
-      {thesis.status !== 'closed' ? (
-        <Pressable onPress={confirmClose} disabled={close.isPending}
-          style={{ alignItems: 'center', paddingVertical: space.sm, borderRadius: 6, borderWidth: 1, borderColor: colors.hairlineOnDark }}>
-          <Text style={[type.button, { color: colors.mutedStrong }]}>{close.isPending ? '기록 중…' : '가설 종료 (성공/실패 기록)'}</Text>
-        </Pressable>
-      ) : (
-        <Text style={[type.titleSm, { color: thesis.outcome === 'success' ? colors.tradingUp : colors.tradingDown, textAlign: 'center' }]}>
-          {thesis.outcome === 'success' ? '성공으로 종료된 가설' : '실패로 종료된 가설'} · 히스토리에서 복기
-        </Text>
-      )}
       <Text style={[type.bodySm, { color: colors.muted, marginTop: space.lg }]}>{DISCLAIMER}</Text>
     </ScrollView>
   );

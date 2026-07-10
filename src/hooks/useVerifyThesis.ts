@@ -25,6 +25,7 @@ export function useVerifyThesis() {
     onSuccess: (_d, thesisId) => {
       qc.invalidateQueries({ queryKey: ['thesis', thesisId] });
       qc.invalidateQueries({ queryKey: ['check_conditions'] });
+      qc.invalidateQueries({ queryKey: ['conditions', thesisId] });
     },
   });
 }
@@ -45,6 +46,7 @@ export function useApplyVerify() {
     onSuccess: (_d, { thesisId }) => {
       qc.invalidateQueries({ queryKey: ['thesis', thesisId] });
       qc.invalidateQueries({ queryKey: ['check_conditions'] });
+      qc.invalidateQueries({ queryKey: ['conditions', thesisId] });
     },
   });
 }
