@@ -43,6 +43,13 @@
     "splash": {
       "backgroundColor": "#0b0e11",
       "image": "./assets/images/splash-icon.png"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e359085c-d330-4cc1-b262-03576f37a45a"
+      }
+    },
+    "owner": "limyosep0274"
   }
 }
