@@ -27,7 +27,13 @@ export function buildEvalPrompt(p: { buy_reason: string; break_conditions: strin
 오늘 스캔 요약: ${p.summary}
 
 스캔 내용이 가설/깨지는 조건에 미치는 영향을 판단해 다음 JSON만 출력:
-{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)","broken":[{"label":"깨졌거나 위험해진 감시 항목 라벨 (목록에 있는 것만)","why":"왜 그런지 한 문장"}],"add_signal":false}\n\nadd_signal: 추가매수 조건이 있고 오늘 스캔 기준으로 그 조건이 충족됐으면 true. 조건이 없거나 불충족이면 false.
+{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)","broken":[{"label":"깨졌거나 위험해진 감시 항목 라벨 (목록에 있는 것만)","why":"왜 그런지 한 문장"}],"add_signal":false}
+
+opinion 기준 (엄격히 적용):
+- hold: 가설이 유효하고 깨지는 조건에 해당하는 변화가 없음. 중립적·긍정적 뉴스, "계속 지켜볼 필요" 는 전부 hold다. 모든 투자는 원래 지속 관찰이 필요하므로 그 이유만으로 watch를 주지 마라.
+- watch: 깨지는 조건과 직접 관련된 부정적 신호가 실제로 나타났으나 아직 확정은 아닐 때만.
+- reduce: 깨지는 조건이 일부 충족됐을 때.
+- exit: 깨지는 조건이 명확히 충족됐을 때.\n\nadd_signal: 추가매수 조건이 있고 오늘 스캔 기준으로 그 조건이 충족됐으면 true. 조건이 없거나 불충족이면 false.
 
 작성 규칙: rationale에 URL·마크다운 링크 금지. 문장마다 \\n 줄바꿈, 짧게.`;
 }
