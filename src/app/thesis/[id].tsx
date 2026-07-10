@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, Text, View, ActivityIndicator, Alert, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useThesis, useCloseThesis, useAppendThesisField, useUpdateThesis } from '@/hooks/useTheses';
+import { useThesis, useCloseThesis, useUpdateThesis } from '@/hooks/useTheses';
 import { useHoldings } from '@/hooks/useHoldings';
 import { useThesisConditions } from '@/hooks/useCheckConditions';
 import { useVerifyThesis, usePreviewVerify, useApplyVerify, useReviseThesis, VerifyResult, ReviseResult } from '@/hooks/useVerifyThesis';
@@ -40,19 +40,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function AdoptRow({ text, color, adopted, onAdopt }: { text: string; color: string; adopted: boolean; onAdopt: () => void }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: space.xs }}>
-      <Text style={[type.bodyMd, { color, flex: 1 }]}>· {text}</Text>
-      <Pressable onPress={onAdopt} disabled={adopted}
-        style={{ marginLeft: space.xs, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill,
-          backgroundColor: adopted ? colors.surfaceElevatedDark : colors.primary + '1F' }}>
-        <Text style={[type.caption, { color: adopted ? colors.muted : colors.primary }]}>{adopted ? '채택됨' : '채택'}</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 type Tab = 'ai' | 'watch' | 'mine';
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'mine', label: '내 가설' },
@@ -68,7 +55,6 @@ export default function ThesisDetailScreen() {
   const verify = useVerifyThesis();
   const preview = usePreviewVerify();
   const applyVerify = useApplyVerify();
-  const appendField = useAppendThesisField();
   const close = useCloseThesis();
   const updateThesis = useUpdateThesis();
   const reviseThesis = useReviseThesis();
@@ -81,6 +67,8 @@ export default function ThesisDetailScreen() {
   const [eAdd, setEAdd] = useState('');
   const [eHorizon, setEHorizon] = useState('');
   const [revision, setRevision] = useState<ReviseResult | null>(null);
+  const [justVerified, setJustVerified] = useState(false);
+  const [aiSeen, setAiSeen] = useState(false);
 
   const startEdit = () => {
     if (!thesis) return;
@@ -124,7 +112,10 @@ export default function ThesisDetailScreen() {
   useEffect(() => {
     if (thesis && !thesis.soundness_review && thesis.status !== 'closed' && !autoStarted.current && !verify.isPending) {
       autoStarted.current = true;
-      verify.mutate(id!, { onError: () => {} });
+      verify.mutate(id!, {
+        onSuccess: () => { setJustVerified(true); setAiSeen(false); setTimeout(() => setJustVerified(false), 4000); },
+        onError: () => {},
+      });
     }
   }, [thesis, id, verify]);
 
@@ -152,15 +143,17 @@ export default function ThesisDetailScreen() {
   if (isLoading || !thesis) return <ActivityIndicator style={{ marginTop: space.xl }} color={colors.primary} />;
   const holding = (holdings ?? []).find((h) => h.id === thesis.holding_id);
   const review = thesis.soundness_review;
-  const adopt = (field: 'break_conditions' | 'add_conditions', text: string) =>
-    appendField.mutate({ thesisId: id!, field, text, current: field === 'break_conditions' ? thesis.break_conditions : thesis.add_conditions });
-  const isAdopted = (field: 'break_conditions' | 'add_conditions', text: string) =>
-    ((field === 'break_conditions' ? thesis.break_conditions : thesis.add_conditions) ?? '').includes(text);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.canvasDark }} contentContainerStyle={{ padding: space.md, paddingBottom: space.xxl }}>
       <Stack.Screen options={{ title: holding ? `${holding.name} 가설` : '가설' }} />
       {holding && <View style={{ marginBottom: space.md }}><PriceChart ticker={holding.ticker} market={holding.market} /></View>}
+
+      {justVerified ? (
+        <View style={{ backgroundColor: colors.tradingUp + '26', borderRadius: 8, paddingVertical: 8, alignItems: 'center', marginBottom: space.sm }}>
+          <Text style={[type.titleSm, { color: colors.tradingUp }]}>AI 점검 완료 — AI 분석 탭에서 확인하세요</Text>
+        </View>
+      ) : null}
 
       {/* ── 점수 히어로 (고정 상단) ── */}
       {review && typeof review.score === 'number' ? (
@@ -193,10 +186,15 @@ export default function ThesisDetailScreen() {
       {/* ── 탭 ── */}
       <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceCardDark, borderRadius: radius.lg, padding: 4, marginBottom: space.md }}>
         {TABS.map((t) => (
-          <Pressable key={t.key} onPress={() => setTab(t.key)}
+          <Pressable key={t.key} onPress={() => { setTab(t.key); if (t.key === 'ai') setAiSeen(true); }}
             style={{ flex: 1, paddingVertical: 8, borderRadius: radius.md, alignItems: 'center',
               backgroundColor: tab === t.key ? colors.surfaceElevatedDark : 'transparent' }}>
-            <Text style={[type.titleSm, { color: tab === t.key ? colors.primary : colors.muted }]}>{t.label}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={[type.titleSm, { color: tab === t.key ? colors.primary : colors.muted }]}>{t.label}</Text>
+              {t.key === 'ai' && review && !aiSeen && tab !== 'ai' ? (
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary, marginLeft: 4 }} />
+              ) : null}
+            </View>
           </Pressable>
         ))}
       </View>
@@ -224,17 +222,15 @@ export default function ThesisDetailScreen() {
                 ))}
               </Section>
             ) : null}
-            <Section title="가설이 깨질 수 있는 경우 — 채택하면 '깨지는 조건'에 추가">
+            <Section title="가설이 깨질 수 있는 경우">
               {review.counterpoints.map((c, i) => (
-                <AdoptRow key={i} text={c} color={colors.tradingDown}
-                  adopted={isAdopted('break_conditions', c)} onAdopt={() => adopt('break_conditions', c)} />
+                <Text key={i} style={[type.bodyMd, { color: colors.tradingDown, marginBottom: space.xxs }]}>· {c}</Text>
               ))}
             </Section>
             {(review.add_candidates ?? []).length > 0 ? (
-              <Section title="추가매수 조건 후보 — 채택하면 '추가매수 조건'에 추가">
+              <Section title="추가매수를 고려할 만한 조건">
                 {review.add_candidates!.map((a, i) => (
-                  <AdoptRow key={i} text={a} color={colors.body}
-                    adopted={isAdopted('add_conditions', a)} onAdopt={() => adopt('add_conditions', a)} />
+                  <Text key={i} style={[type.bodyMd, { color: colors.body, marginBottom: space.xxs }]}>· {a}</Text>
                 ))}
               </Section>
             ) : null}
@@ -297,15 +293,18 @@ export default function ThesisDetailScreen() {
             <>
               {(conditions ?? []).map((c) => {
                 const meta = STATE_META[c.condition_state] ?? STATE_META.ok;
+                const past = !!c.next_check_date && c.next_check_date < new Date().toISOString().slice(0, 10);
                 return (
                   <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: space.sm, borderBottomWidth: 1, borderBottomColor: colors.hairlineOnDark }}>
                     <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: meta.color + '26', alignItems: 'center', justifyContent: 'center', marginRight: space.sm }}>
                       <Text style={{ color: meta.color, fontSize: 12, fontWeight: '700' }}>{meta.icon}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[type.bodyMd, { color: c.condition_state === 'broken' ? colors.tradingDown : colors.body }]} numberOfLines={2}>{c.label}</Text>
+                      <Text style={[type.bodyMd, { color: past ? colors.muted : c.condition_state === 'broken' ? colors.tradingDown : colors.body }]} numberOfLines={2}>{c.label}</Text>
                       {c.next_check_date ? (
-                        <Text style={[type.numberSm, { color: colors.muted, marginTop: 1 }]}>{c.next_check_date.replaceAll('-', '.')}</Text>
+                        <Text style={[type.numberSm, { color: colors.muted, marginTop: 1 }]}>
+                          {c.next_check_date.replaceAll('-', '.')}{past ? ' · 지남' : ''}
+                        </Text>
                       ) : null}
                     </View>
                     {c.source === 'user' ? <Text style={[type.caption, { color: colors.muted, marginLeft: space.xs }]}>내 선택</Text> : null}

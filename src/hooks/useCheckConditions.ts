@@ -46,6 +46,7 @@ export function useCheckConditions() {
         .select('*, theses!inner(id, holdings!inner(ticker))')
         .eq('status', 'open')
         .not('next_check_date', 'is', null)
+        .gte('next_check_date', new Date().toISOString().slice(0, 10))
         .order('next_check_date', { ascending: true });
       if (error) throw error;
       return (data ?? []) as unknown as CalendarItem[];

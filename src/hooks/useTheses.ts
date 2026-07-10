@@ -44,22 +44,6 @@ export function useUpdateThesis() {
   });
 }
 
-/** AI 후보 채택: 깨지는 조건/추가매수 조건 텍스트에 한 줄 추가 */
-export function useAppendThesisField() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ thesisId, field, text, current }: {
-      thesisId: string; field: 'break_conditions' | 'add_conditions'; text: string; current: string | null;
-    }) => {
-      const next = current && current.trim() ? `${current.trim()}\n${text}` : text;
-      const { error } = await supabase.from('theses').update({ [field]: next }).eq('id', thesisId);
-      if (error) throw error;
-      return next;
-    },
-    onSuccess: (_d, { thesisId }) => qc.invalidateQueries({ queryKey: ['thesis', thesisId] }),
-  });
-}
-
 export function useCloseThesis() {
   const qc = useQueryClient();
   return useMutation({
@@ -68,12 +52,16 @@ export function useCloseThesis() {
         .update({ status: 'closed', outcome: input.outcome, closed_at: new Date().toISOString() })
         .eq('id', input.thesisId).select().single();
       if (error) throw error;
+      // 감시 항목도 종료 — 캘린더/감시 목록에서 제거
+      await supabase.from('check_conditions').update({ status: 'done' }).eq('thesis_id', input.thesisId).eq('status', 'open');
       return data as unknown as Thesis;
     },
     onSuccess: (_d, input) => {
       qc.invalidateQueries({ queryKey: ['theses'] });
       qc.invalidateQueries({ queryKey: ['thesis', input.thesisId] });
       qc.invalidateQueries({ queryKey: ['stats'] });
+      qc.invalidateQueries({ queryKey: ['check_conditions'] });
+      qc.invalidateQueries({ queryKey: ['conditions', input.thesisId] });
     },
   });
 }
