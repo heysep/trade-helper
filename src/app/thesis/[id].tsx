@@ -10,7 +10,7 @@ import { Card } from '@/components/Card';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { ScoreRing } from '@/components/ScoreRing';
 import { TextField } from '@/components/TextField';
-import { NumberedText } from '@/components/NumberedText';
+import { NumberedText, toNumbered, fromNumbered, autoNumberOnEnter } from '@/components/NumberedText';
 import { DISCLAIMER } from '@/constants/brand';
 import { colors, type, space, radius } from '@/theme';
 
@@ -84,17 +84,17 @@ export default function ThesisDetailScreen() {
 
   const startEdit = () => {
     if (!thesis) return;
-    setEBuy(thesis.buy_reason);
-    setEBreak(thesis.break_conditions);
-    setEAdd(thesis.add_conditions ?? '');
+    setEBuy(toNumbered(thesis.buy_reason));
+    setEBreak(toNumbered(thesis.break_conditions));
+    setEAdd(toNumbered(thesis.add_conditions ?? ''));
     setEHorizon(thesis.target_horizon);
     setEditing(true);
   };
   const saveEdit = () => {
-    if (!eBuy.trim() || !eBreak.trim()) { Alert.alert('입력 확인', '매수 이유와 깨지는 조건은 비울 수 없어요.'); return; }
+    if (!eBuy.trim() || !eBreak.trim() || !eHorizon.trim()) { Alert.alert('입력 확인', '매수 이유·깨지는 조건·보유 기간은 비울 수 없어요.'); return; }
     updateThesis.mutate({
       thesisId: id!,
-      fields: { buy_reason: eBuy.trim(), break_conditions: eBreak.trim(), add_conditions: eAdd.trim() || null, target_horizon: eHorizon.trim() },
+      fields: { buy_reason: fromNumbered(eBuy), break_conditions: fromNumbered(eBreak), add_conditions: fromNumbered(eAdd) || null, target_horizon: eHorizon.trim() },
     }, { onSuccess: () => setEditing(false), onError: (e) => Alert.alert('저장 실패', e.message) });
   };
   const askRevision = () => {
@@ -325,9 +325,9 @@ export default function ThesisDetailScreen() {
           <Card style={{ marginBottom: space.md }}>
             {editing ? (
               <>
-                <TextField dark label="매수 이유 (가설)" value={eBuy} onChangeText={setEBuy} multiline />
-                <TextField dark label="가설이 깨지는 조건" value={eBreak} onChangeText={setEBreak} multiline />
-                <TextField dark label="추가매수 조건 (선택)" value={eAdd} onChangeText={setEAdd} multiline />
+                <TextField dark label="매수 이유 (가설)" value={eBuy} onChangeText={(t) => setEBuy(autoNumberOnEnter(eBuy, t))} multiline />
+                <TextField dark label="가설이 깨지는 조건" value={eBreak} onChangeText={(t) => setEBreak(autoNumberOnEnter(eBreak, t))} multiline />
+                <TextField dark label="추가매수 조건 (선택)" value={eAdd} onChangeText={(t) => setEAdd(autoNumberOnEnter(eAdd, t))} multiline />
                 <TextField dark label="목표 보유 기간" value={eHorizon} onChangeText={setEHorizon} />
                 <PrimaryButton title={updateThesis.isPending ? '저장 중…' : '저장'} onPress={saveEdit} disabled={updateThesis.isPending} />
                 <Pressable onPress={() => setEditing(false)} disabled={updateThesis.isPending}>
