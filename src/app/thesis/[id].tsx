@@ -368,15 +368,24 @@ export default function ThesisDetailScreen() {
                         {scheduled.map((c, idx) => {
                           const meta = STATE_META[c.condition_state] ?? STATE_META.ok;
                           const past = c.next_check_date! < todayStr;
+                          const future = c.next_check_date! > todayStr;
+                          // 미래 일정은 아직 점검 전 — 정상/비정상 대신 '예정'
+                          const statusLabel = future ? '예정' : c.next_check_date! === todayStr ? '오늘' : meta.label;
+                          const statusColor = future ? colors.muted : c.next_check_date! === todayStr ? colors.primary : meta.color;
                           return (
                             <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: space.sm, borderTopWidth: idx === 0 ? 0 : 1, borderTopColor: colors.hairlineOnDark }}>
                               <Text style={[type.numberSm, { color: past ? colors.muted : colors.mutedStrong, width: 52 }]}>
                                 {c.next_check_date!.slice(5).replace('-', '.')}
                               </Text>
-                              <Text style={[type.titleSm, { color: past ? colors.muted : colors.body, flex: 1 }]} numberOfLines={2}>
-                                {c.label}{past ? ' · 지남' : ''}
-                              </Text>
-                              <Text style={[type.caption, { color: meta.color, marginLeft: space.xs }]}>{meta.label}</Text>
+                              <View style={{ flex: 1 }}>
+                                <Text style={[type.titleSm, { color: past ? colors.muted : colors.body }]} numberOfLines={2}>
+                                  {c.label}{past ? ' · 지남' : ''}
+                                </Text>
+                                {c.detail ? (
+                                  <Text style={[type.bodySm, { color: colors.muted, marginTop: 1 }]} numberOfLines={2}>{c.detail}</Text>
+                                ) : null}
+                              </View>
+                              <Text style={[type.caption, { color: statusColor, marginLeft: space.xs }]}>{statusLabel}</Text>
                             </View>
                           );
                         })}
@@ -405,14 +414,14 @@ export default function ThesisDetailScreen() {
                               <Text style={[type.bodySm, { color: headerBroken ? colors.tradingDown : colors.muted, marginBottom: space.xs }]}>
                                 {headerBroken
                                   ? (selfRow.state_note || '이 논점을 흔드는 변화가 감지됐어요.')
-                                  : '최근 점검 기준으로 이 논점은 유효해요.'}
+                                  : (selfRow.state_note || '최근 점검 기준으로 이 논점은 유효해요.')}
                               </Text>
                             ) : null}
                             {subItems.map((c) => {
                               const meta = STATE_META[c.condition_state] ?? STATE_META.ok;
                               const note = c.condition_state === 'broken'
                                 ? (c.state_note || '깨지는 조건에 해당하는 변화가 감지됐어요.')
-                                : '최근 점검에서 특이사항이 없었어요.';
+                                : (c.state_note || c.detail || '최근 점검에서 특이사항이 없었어요.');
                               return (
                                 <View key={c.id} style={{ paddingVertical: space.sm, borderTopWidth: 1, borderTopColor: colors.hairlineOnDark }}>
                                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>

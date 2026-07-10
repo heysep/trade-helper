@@ -45,9 +45,12 @@ export function formatMonth(m: string): string {
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 const REGION_LABEL: Record<string, string> = { US: '미국', CN: '중국', KR: '한국', EU: '유럽', JP: '일본', global: '글로벌' };
 
-export function CalendarRow({ item, onPress }: { item: UnifiedItem; onPress?: () => void }) {
+export function CalendarRow({ item, onPress, starred, onToggleStar }: {
+  item: UnifiedItem; onPress?: () => void; starred?: boolean; onToggleStar?: () => void;
+}) {
   const d = new Date(item.date + 'T00:00:00');
   const market = item.kind === 'market';
+  const isStar = starred ?? item.starred;
   return (
     <Pressable onPress={onPress} disabled={!onPress}
       style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: space.sm, borderBottomWidth: 1, borderBottomColor: colors.hairlineOnDark }}>
@@ -62,7 +65,9 @@ export function CalendarRow({ item, onPress }: { item: UnifiedItem; onPress?: ()
       ) : (
         <Text style={[type.caption, { color: colors.muted, marginRight: space.xs }]}>{item.ticker}</Text>
       )}
-      {item.starred ? <Text style={{ color: colors.primary }}>★</Text> : null}
+      <Pressable onPress={onToggleStar} disabled={!onToggleStar} hitSlop={10} style={{ paddingLeft: 4 }}>
+        <Text style={{ color: isStar ? colors.primary : colors.hairlineOnDark, fontSize: 16 }}>{isStar ? '★' : '☆'}</Text>
+      </Pressable>
     </Pressable>
   );
 }

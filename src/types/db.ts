@@ -33,7 +33,8 @@ export interface CheckCondition {
   condition_state: 'ok' | 'warning' | 'broken';
   source: 'user' | 'ai';
   reason_label: string | null;   // 어느 논점에서 나온 항목인지
-  state_note: string | null;     // 왜 정상/비정상인지 한 줄
+  state_note: string | null;     // 왜 정상/비정상인지 한 줄 (매일 점검이 갱신)
+  detail: string | null;         // 이 항목이 왜 중요한지 (검증 시 생성, 정적)
 }
 export interface DailyScan {
   id: string; ticker: string; market: 'KRX' | 'US'; scan_date: string;

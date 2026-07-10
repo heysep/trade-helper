@@ -5,6 +5,7 @@ import { useCheckConditions } from '@/hooks/useCheckConditions';
 import { useMarketEvents } from '@/hooks/useMarketEvents';
 import { CalendarRow, mergeCalendar, groupByMonth, formatMonth } from '@/components/CalendarRow';
 import { EmptyState } from '@/components/EmptyState';
+import { useStars } from '@/hooks/useStars';
 import { colors, type, space, radius } from '@/theme';
 
 export default function CalendarScreen() {
@@ -12,8 +13,9 @@ export default function CalendarScreen() {
   const [onlyImportant, setOnlyImportant] = useState(false);
   const { data: mine, isLoading, refetch, isRefetching } = useCheckConditions();
   const { data: market, refetch: refetchMarket } = useMarketEvents();
+  const { isStarred, toggleStar } = useStars();
   const merged = mergeCalendar(mine ?? [], market ?? []);
-  const visible = onlyImportant ? merged.filter((i) => i.starred) : merged;
+  const visible = onlyImportant ? merged.filter((i) => isStarred(i.id, i.starred)) : merged;
   const sections = groupByMonth(visible).map((g) => ({ title: formatMonth(g.month), data: g.items }));
 
   return (
@@ -39,7 +41,12 @@ export default function CalendarScreen() {
           <Text style={[type.displaySm, { color: colors.onDark, marginTop: space.lg, marginBottom: space.xs }]}>{section.title}</Text>
         )}
         renderItem={({ item }) => (
-          <CalendarRow item={item} onPress={item.thesisId ? () => router.push(`/thesis/${item.thesisId}`) : undefined} />
+          <CalendarRow
+            item={item}
+            onPress={item.thesisId ? () => router.push(`/thesis/${item.thesisId}`) : undefined}
+            starred={isStarred(item.id, item.starred)}
+            onToggleStar={() => toggleStar(item.id, item.starred)}
+          />
         )}
         ListEmptyComponent={!isLoading ? (
           <EmptyState
@@ -50,7 +57,7 @@ export default function CalendarScreen() {
         ) : null}
         ListFooterComponent={merged.some((i) => i.kind === 'market') ? (
           <Text style={[type.caption, { color: colors.muted, marginTop: space.md }]}>
-            파란 배지 = 시장 공통 일정 (자동 수집) · ★ = 중요
+            파란 배지 = 시장 공통 일정 (자동 수집) · ★ 탭해서 중요 표시/해제
           </Text>
         ) : null}
       />

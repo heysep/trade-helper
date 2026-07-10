@@ -9,7 +9,7 @@ const CORS_HEADERS = {
 };
 
 interface ScanJson { summary: string; change_level: "none" | "minor" | "major"; sources: string[] }
-interface EvalJson { opinion: "hold" | "watch" | "reduce" | "exit"; rationale: string; broken?: Array<{ label: string; why?: string }>; add_signal?: boolean }
+interface EvalJson { opinion: "hold" | "watch" | "reduce" | "exit"; rationale: string; checks?: Array<{ label: string; state?: string; why?: string }>; broken?: Array<{ label: string; why?: string }>; add_signal?: boolean }
 
 /** 사용자가 누른 즉시 점검: 해당 가설 하나만 스캔+판정 (오늘 결과 갱신) */
 export async function handleCheckNow(req: Request, deps?: { callFn?: typeof callOpenAI }): Promise<Response> {
@@ -50,7 +50,7 @@ export async function handleCheckNow(req: Request, deps?: { callFn?: typeof call
     const rawEval = await call({
       model: Deno.env.get("OPENAI_MODEL_EVAL") ?? "gpt-5-mini",
       input: buildEvalPrompt({ buy_reason: thesis.buy_reason, break_conditions: thesis.break_conditions, add_conditions: thesis.add_conditions, summary: stripLinks(scan.summary), today: todayStr, watch_labels: watchLabels }),
-      maxOutputTokens: 2000, reasoningEffort: "low",
+      maxOutputTokens: 3500, reasoningEffort: "low",
     });
     const ev = parseJsonBlock<EvalJson>(rawEval);
     const rationale = stripLinks(ev.rationale);
@@ -62,22 +62,22 @@ export async function handleCheckNow(req: Request, deps?: { callFn?: typeof call
       { onConflict: "thesis_id,check_date" },
     );
 
-    // 4) 감시 상태 갱신 — 깨진 것 표시, 나머지는 정상으로 리셋
-    const brokenMap = new Map<string, string>();
-    for (const b of ev.broken ?? []) brokenMap.set(b.label.trim(), stripLinks(b.why ?? ""));
+    // 4) 감시 상태 갱신 — 전 항목 상태+사유, 응답에 없는 항목은 정상 처리
+    const stateMap = new Map<string, { state: string; why: string }>();
+    for (const c of ev.checks ?? []) stateMap.set(c.label.trim(), { state: c.state === "broken" ? "broken" : "ok", why: stripLinks(c.why ?? "") });
+    for (const b of ev.broken ?? []) stateMap.set(b.label.trim(), { state: "broken", why: stripLinks(b.why ?? "") });
     for (const c of (conds ?? []) as Array<{ id: string; label: string }>) {
-      const why = brokenMap.get(c.label.trim());
-      if (why !== undefined) {
-        await db.from("check_conditions").update({ condition_state: "broken", state_note: why || null }).eq("id", c.id);
-      } else {
-        await db.from("check_conditions").update({ condition_state: "ok", state_note: null }).eq("id", c.id);
-      }
+      const st = stateMap.get(c.label.trim());
+      await db.from("check_conditions").update({
+        condition_state: st?.state ?? "ok",
+        state_note: st?.why || null,
+      }).eq("id", c.id);
     }
 
     return new Response(JSON.stringify({
       opinion: ev.opinion, rationale, add_signal: addSignal,
       summary: stripLinks(scan.summary), change_level: scan.change_level,
-      broken: [...brokenMap.keys()],
+      broken: [...stateMap.entries()].filter(([, v]) => v.state === "broken").map(([k]) => k),
     }), { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: CORS_HEADERS });

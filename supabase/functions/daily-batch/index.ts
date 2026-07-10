@@ -27,7 +27,7 @@ export function buildEvalPrompt(p: { buy_reason: string; break_conditions: strin
 오늘 스캔 요약: ${p.summary}
 
 스캔 내용이 가설/깨지는 조건에 미치는 영향을 판단해 다음 JSON만 출력:
-{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)","broken":[{"label":"깨졌거나 위험해진 감시 항목 라벨 (목록에 있는 것만)","why":"왜 그런지 한 문장"}],"add_signal":false}
+{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)","checks":[{"label":"감시 항목 라벨 (목록에 있는 것 전부, 하나씩)","state":"ok|broken","why":"왜 정상인지/왜 깨졌는지 한 문장"}],"add_signal":false}
 
 opinion 기준 (엄격히 적용):
 - hold: 가설이 유효하고 깨지는 조건에 해당하는 변화가 없음. 중립적·긍정적 뉴스, "계속 지켜볼 필요" 는 전부 hold다. 모든 투자는 원래 지속 관찰이 필요하므로 그 이유만으로 watch를 주지 마라.
@@ -116,7 +116,7 @@ async function ensureMacroEvents(db: any, call: typeof callOpenAI, _model: strin
 }
 
 interface ScanJson { summary: string; change_level: "none" | "minor" | "major"; sources: string[] }
-interface EvalJson { opinion: "hold" | "watch" | "reduce" | "exit"; rationale: string; broken?: Array<{ label: string; why?: string }>; broken_labels?: string[]; add_signal?: boolean }
+interface EvalJson { opinion: "hold" | "watch" | "reduce" | "exit"; rationale: string; checks?: Array<{ label: string; state?: string; why?: string }>; broken?: Array<{ label: string; why?: string }>; broken_labels?: string[]; add_signal?: boolean }
 
 interface ThesisRow {
   id: string; user_id: string; buy_reason: string; break_conditions: string; add_conditions: string | null;
@@ -210,17 +210,18 @@ async function runBatch(market: "KRX" | "US", today: Date, deps?: { callFn?: typ
         if (decideEval(scan) === "eval") {
           const { data: conds } = await db.from("check_conditions").select("id, label").eq("thesis_id", t.id).eq("status", "open");
           const watchLabels = (conds ?? []).map((c: { label: string }) => c.label);
-          const raw = await call({ model: evalModel, input: buildEvalPrompt({ buy_reason: t.buy_reason, break_conditions: t.break_conditions, add_conditions: t.add_conditions, summary: scan.summary, today: todayStr, watch_labels: watchLabels }), maxOutputTokens: 2000, reasoningEffort: 'low' });
+          const raw = await call({ model: evalModel, input: buildEvalPrompt({ buy_reason: t.buy_reason, break_conditions: t.break_conditions, add_conditions: t.add_conditions, summary: scan.summary, today: todayStr, watch_labels: watchLabels }), maxOutputTokens: 3500, reasoningEffort: 'low' });
           const ev = parseJsonBlock<EvalJson>(raw);
           opinion = ev.opinion; rationale = stripLinks(ev.rationale); addSignal = ev.add_signal === true; evaluated++; evalCalls++;
-          // 감시 항목 깨짐 상태 + 사유 반영 (구형 broken_labels 응답도 수용)
-          const brokenMap = new Map<string, string>();
-          for (const b of ev.broken ?? []) brokenMap.set(b.label.trim(), stripLinks(b.why ?? ""));
-          for (const l of ev.broken_labels ?? []) if (!brokenMap.has(l.trim())) brokenMap.set(l.trim(), "");
+          // 전 항목 상태+사유 반영 (신형 checks[], 구형 broken/broken_labels 수용)
+          const stateMap = new Map<string, { state: string; why: string }>();
+          for (const c of ev.checks ?? []) stateMap.set(c.label.trim(), { state: c.state === "broken" ? "broken" : "ok", why: stripLinks(c.why ?? "") });
+          for (const b of ev.broken ?? []) stateMap.set(b.label.trim(), { state: "broken", why: stripLinks(b.why ?? "") });
+          for (const l of ev.broken_labels ?? []) if (!stateMap.has(l.trim())) stateMap.set(l.trim(), { state: "broken", why: "" });
           for (const c of (conds ?? []) as Array<{ id: string; label: string }>) {
-            const why = brokenMap.get(c.label.trim());
-            if (why !== undefined) {
-              await db.from("check_conditions").update({ condition_state: "broken", state_note: why || null }).eq("id", c.id);
+            const st = stateMap.get(c.label.trim());
+            if (st) {
+              await db.from("check_conditions").update({ condition_state: st.state, state_note: st.why || null }).eq("id", c.id);
             }
           }
           await db.from("usage_daily").update({ eval_calls: evalCalls }).eq("usage_date", todayStr);

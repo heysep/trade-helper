@@ -8,7 +8,7 @@ interface VerifyResult {
   reason_reviews: Array<{ reason: string; verdict: "타당" | "부분 타당" | "약함"; comment: string }>;
   missing_points: string[];
   counterpoints: string[];
-  check_conditions: Array<{ label: string; for_reason?: string; event_type: "earnings" | "guidance" | "metric" | "custom"; next_check_date: string | null }>;
+  check_conditions: Array<{ label: string; for_reason?: string; why?: string; event_type: "earnings" | "guidance" | "metric" | "custom"; next_check_date: string | null }>;
 }
 
 export function buildVerifyPrompt(p: { name: string; ticker: string; market: string; buy_reason: string; break_conditions: string; target_horizon: string; today: string }): string {
@@ -21,7 +21,7 @@ export function buildVerifyPrompt(p: { name: string; ticker: string; market: str
 
 먼저 사용자의 매수 이유를 개별 논점으로 나눠라 (번호·줄바꿈·문장 단위).
 그 다음 웹검색으로 종목의 실제 상황과 다가오는 이벤트(실적발표일 등)를 확인하고, 다음 JSON만 출력:
-{"score":0,"summary":"한 줄 총평 (40자 이내)","reason_reviews":[{"reason":"논점 요약 (20자 이내)","verdict":"타당|부분 타당|약함","comment":"왜 그런지 쉬운 말 1-2문장"}],"missing_points":["사용자가 놓친 관점 1-3개, 각 한 문장"],"counterpoints":["가설이 깨질 수 있는 시나리오 2-4개, 각 한 문장"],"add_candidates":["추가매수를 고려할 만한 조건 후보 2-3개, 각 한 문장"],"check_conditions":[{"label":"확인 항목 (25자 이내)","for_reason":"이 항목이 검증하는 논점 (reason_reviews의 reason과 똑같은 문구)","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}
+{"score":0,"summary":"한 줄 총평 (40자 이내)","reason_reviews":[{"reason":"논점 요약 (20자 이내)","verdict":"타당|부분 타당|약함","comment":"왜 그런지 쉬운 말 1-2문장"}],"missing_points":["사용자가 놓친 관점 1-3개, 각 한 문장"],"counterpoints":["가설이 깨질 수 있는 시나리오 2-4개, 각 한 문장"],"add_candidates":["추가매수를 고려할 만한 조건 후보 2-3개, 각 한 문장"],"check_conditions":[{"label":"확인 항목 (25자 이내)","for_reason":"이 항목이 검증하는 논점 (reason_reviews의 reason과 똑같은 문구)","why":"이 항목이 내 가설에 왜 중요한지 한 문장","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}
 
 score 채점 기준 (0~100 정수):
 - 사실 부합성 40점: 논거가 실제 데이터·뉴스와 맞는가
@@ -79,7 +79,7 @@ function sanitizeResult(parsed: VerifyResult): VerifyResult {
     missing_points: (parsed.missing_points ?? []).map(stripLinks),
     counterpoints: (parsed.counterpoints ?? []).map(stripLinks),
     add_candidates: (parsed.add_candidates ?? []).map(stripLinks),
-    check_conditions: (parsed.check_conditions ?? []).map((c) => ({ ...c, label: stripLinks(c.label), for_reason: c.for_reason ? stripLinks(c.for_reason) : undefined })),
+    check_conditions: (parsed.check_conditions ?? []).map((c) => ({ ...c, label: stripLinks(c.label), for_reason: c.for_reason ? stripLinks(c.for_reason) : undefined, why: c.why ? stripLinks(c.why) : undefined })),
   };
 }
 
@@ -104,7 +104,7 @@ async function persistResult(supabase: any, thesis_id: string, result: VerifyRes
       event_type: "custom", next_check_date: null, source: "ai",
     })),
     ...result.check_conditions.map((c) => ({
-      thesis_id, label: c.label, reason_label: c.for_reason ?? null,
+      thesis_id, label: c.label, reason_label: c.for_reason ?? null, detail: c.why ?? null,
       event_type: c.event_type, next_check_date: c.next_check_date, source: "ai",
     })),
   ];
