@@ -1,6 +1,7 @@
-import { Platform, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
+import { fetchMarketData } from '@/lib/ticker';
 import { colors, type, radius, space } from '@/theme';
 
 export function toYahooSymbol(ticker: string, market: 'KRX' | 'US'): string {
@@ -32,14 +33,10 @@ export function mockSeries(ticker: string): number[] {
 }
 
 async function fetchDailyCloses(ticker: string, market: 'KRX' | 'US'): Promise<number[]> {
-  const symbol = toYahooSymbol(ticker, market);
-  const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=3mo&interval=1d`);
-  if (!res.ok) throw new Error(`chart ${res.status}`);
-  const data = await res.json();
-  const closes: (number | null)[] = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? [];
-  const values = closes.filter((v): v is number => typeof v === 'number');
-  if (values.length < 2) throw new Error('no data');
-  return values;
+  // 서버 프록시 경유 — 웹/네이티브 동일 (CORS 무관)
+  const d = await fetchMarketData(ticker, market, '3mo');
+  if (!d || d.closes.length < 2) throw new Error('no data');
+  return d.closes;
 }
 
 const CHART_W = 320;
@@ -59,9 +56,7 @@ export function PriceChart({ ticker, market }: { ticker: string; market: 'KRX' |
   if (isError || !data) {
     return (
       <View style={{ height: 60, borderRadius: radius.lg, backgroundColor: colors.surfaceCardDark, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={[type.caption, { color: colors.muted }]}>
-          {Platform.OS === 'web' ? '차트는 모바일 앱에서 지원됩니다' : '차트 데이터를 불러오지 못했습니다'}
-        </Text>
+        <Text style={[type.caption, { color: colors.muted }]}>차트 데이터를 불러오지 못했습니다</Text>
       </View>
     );
   }
