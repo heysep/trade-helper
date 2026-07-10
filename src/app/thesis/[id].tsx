@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, Text, View, ActivityIndicator, Alert, Pressable } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { useThesis, useCloseThesis, useUpdateThesis } from '@/hooks/useTheses';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useThesis, useCloseThesis, useUpdateThesis, useDeleteThesis } from '@/hooks/useTheses';
 import { useHoldings } from '@/hooks/useHoldings';
 import { useThesisConditions } from '@/hooks/useCheckConditions';
 import { useVerifyThesis, usePreviewVerify, useApplyVerify, useReviseThesis, useCheckNow, VerifyResult, ReviseResult, CheckNowResult } from '@/hooks/useVerifyThesis';
@@ -59,6 +59,8 @@ export default function ThesisDetailScreen() {
   const applyVerify = useApplyVerify();
   const close = useCloseThesis();
   const updateThesis = useUpdateThesis();
+  const deleteThesis = useDeleteThesis();
+  const router = useRouter();
   const reviseThesis = useReviseThesis();
   const checkNow = useCheckNow();
   const autoStarted = useRef(false);
@@ -142,6 +144,17 @@ export default function ThesisDetailScreen() {
       onSuccess: () => setPendingResult(null),
       onError: (e) => Alert.alert('저장 실패', e.message),
     });
+  };
+  const confirmDelete = () => {
+    Alert.alert('가설 삭제', '이 가설과 감시 항목·점검 기록이 모두 삭제됩니다. 복구할 수 없어요.', [
+      { text: '삭제', style: 'destructive', onPress: () => {
+        deleteThesis.mutate({ thesisId: id!, holdingId: thesis!.holding_id }, {
+          onSuccess: () => router.back(),
+          onError: (e) => Alert.alert('삭제 실패', e.message),
+        });
+      } },
+      { text: '취소', style: 'cancel' },
+    ]);
   };
   const confirmClose = () => {
     Alert.alert('가설 종료', '이 가설의 결과를 기록합니다. 종료 후 히스토리에서 복기할 수 있어요.', [
@@ -469,6 +482,10 @@ export default function ThesisDetailScreen() {
               {thesis.outcome === 'success' ? '성공으로 종료된 가설' : '실패로 종료된 가설'} · 히스토리에서 복기
             </Text>
           )}
+          <Pressable onPress={confirmDelete} disabled={deleteThesis.isPending}
+            style={{ alignItems: 'center', paddingVertical: space.sm, marginTop: space.xs }}>
+            <Text style={[type.button, { color: colors.tradingDown }]}>{deleteThesis.isPending ? '삭제 중…' : '가설 삭제'}</Text>
+          </Pressable>
         </>
       ) : null}
 

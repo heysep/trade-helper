@@ -66,6 +66,29 @@ export function useCloseThesis() {
   });
 }
 
+/** 가설 삭제 — 조건/결과는 FK cascade, 마지막 가설이면 종목도 정리 (5종목 슬롯 회수) */
+export function useDeleteThesis() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ thesisId, holdingId }: { thesisId: string; holdingId: string }) => {
+      const { error } = await supabase.from('theses').delete().eq('id', thesisId);
+      if (error) throw error;
+      const { count } = await supabase.from('theses').select('id', { count: 'exact', head: true }).eq('holding_id', holdingId);
+      if ((count ?? 0) === 0) {
+        await supabase.from('holdings').delete().eq('id', holdingId);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['theses'] });
+      qc.invalidateQueries({ queryKey: ['holdings'] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
+      qc.invalidateQueries({ queryKey: ['check_conditions'] });
+      qc.invalidateQueries({ queryKey: ['check_results'] });
+      qc.invalidateQueries({ queryKey: ['signals'] });
+    },
+  });
+}
+
 export function useAddThesis() {
   const qc = useQueryClient();
   return useMutation({
