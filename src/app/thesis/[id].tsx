@@ -89,7 +89,19 @@ export default function ThesisDetailScreen() {
     updateThesis.mutate({
       thesisId: id!,
       fields: { buy_reason: fromNumbered(eBuy), break_conditions: fromNumbered(eBreak), add_conditions: fromNumbered(eAdd) || null, target_horizon: eHorizon.trim() },
-    }, { onSuccess: () => setEditing(false), onError: (e) => Alert.alert('저장 실패', e.message) });
+    }, {
+      onSuccess: () => {
+        setEditing(false);
+        Alert.alert('저장 완료', '가설이 바뀌어서 기존 AI 검증 결과와 다를 수 있어요. 지금 다시 검증할까요?', [
+          { text: '지금 검증', onPress: () => { setTab('ai'); verify.mutate(id!, {
+            onSuccess: () => { setJustVerified(true); setAiSeen(false); setTimeout(() => setJustVerified(false), 4000); },
+            onError: (e) => Alert.alert('재검증 실패', e.message),
+          }); } },
+          { text: '나중에', style: 'cancel' },
+        ]);
+      },
+      onError: (e) => Alert.alert('저장 실패', e.message),
+    });
   };
   const runCheckNow = () => {
     setNowResult(null);
@@ -117,7 +129,15 @@ export default function ThesisDetailScreen() {
       thesisId: id!,
       fields: { buy_reason: revision.buy_reason, break_conditions: revision.break_conditions, add_conditions: revision.add_conditions },
     }, {
-      onSuccess: () => { setRevision(null); setTab('mine'); },
+      onSuccess: () => {
+        setRevision(null);
+        // 가설이 바뀌었으니 기존 검증은 무효 — 새 가설로 자동 재검증
+        setTab('ai');
+        verify.mutate(id!, {
+          onSuccess: () => { setJustVerified(true); setAiSeen(false); setTimeout(() => setJustVerified(false), 4000); },
+          onError: (e) => Alert.alert('재검증 실패', e.message + '\nAI 재검증 버튼으로 다시 시도해 주세요.'),
+        });
+      },
       onError: (e) => Alert.alert('적용 실패', e.message),
     });
   };
@@ -208,7 +228,15 @@ export default function ThesisDetailScreen() {
 
       {/* ── AI 분석 탭 ── */}
       {tab === 'ai' ? (
-        preview.isPending ? (
+        verify.isPending ? (
+          <Card style={{ alignItems: 'center', paddingVertical: space.xl }}>
+            <ActivityIndicator color={colors.primary} size="large" />
+            <Text style={[type.titleSm, { color: colors.onDark, marginTop: space.md }]}>바뀐 가설로 다시 검증하고 있어요</Text>
+            <Text style={[type.bodySm, { color: colors.muted, marginTop: space.xxs, textAlign: 'center' }]}>
+              30초~1분 30초 정도 걸려요.
+            </Text>
+          </Card>
+        ) : preview.isPending ? (
           <Card style={{ alignItems: 'center', paddingVertical: space.xl }}>
             <ActivityIndicator color={colors.primary} size="large" />
             <Text style={[type.titleSm, { color: colors.onDark, marginTop: space.md }]}>AI가 다시 검증하고 있어요</Text>
