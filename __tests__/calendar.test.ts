@@ -4,7 +4,7 @@ import type { MarketEvent } from '../src/hooks/useMarketEvents';
 
 const mine = (date: string, label: string, eventType = 'metric'): CalendarItem => ({
   id: label, thesis_id: 't', label, event_type: eventType as CalendarItem['event_type'],
-  next_check_date: date, status: 'open', condition_state: 'ok', source: 'ai',
+  next_check_date: date, status: 'open', condition_state: 'ok', source: 'ai', reason_label: null, state_note: null,
   theses: { id: 't', holdings: { ticker: 'NVDA' } },
 });
 

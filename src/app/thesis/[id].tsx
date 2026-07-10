@@ -294,36 +294,62 @@ export default function ThesisDetailScreen() {
 
       {/* ── 감시 항목 탭 ── */}
       {tab === 'watch' ? (
-        <Card>
-          {(conditions ?? []).length === 0 ? (
+        (conditions ?? []).length === 0 ? (
+          <Card>
             <Text style={[type.bodyMd, { color: colors.muted }]}>감시 중인 항목이 없어요. AI 검증을 실행하면 자동으로 추가돼요.</Text>
-          ) : (
-            <>
-              {(conditions ?? []).map((c) => {
-                const meta = STATE_META[c.condition_state] ?? STATE_META.ok;
-                const past = !!c.next_check_date && c.next_check_date < new Date().toISOString().slice(0, 10);
+          </Card>
+        ) : (
+          <>
+            {(() => {
+              // 논점(가설)별로 묶어서 표시
+              const groups = new Map<string, NonNullable<typeof conditions>>();
+              for (const c of conditions ?? []) {
+                const key = c.reason_label ?? (c.source === 'user' ? '내가 고른 항목' : '일반 감시');
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key)!.push(c);
+              }
+              return [...groups.entries()].map(([reason, items]) => {
+                const anyBroken = items.some((c) => c.condition_state === 'broken');
                 return (
-                  <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: space.sm, borderBottomWidth: 1, borderBottomColor: colors.hairlineOnDark }}>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: meta.color + '26', alignItems: 'center', justifyContent: 'center', marginRight: space.sm }}>
-                      <Text style={{ color: meta.color, fontSize: 12, fontWeight: '700' }}>{meta.icon}</Text>
+                  <Card key={reason} style={{ marginBottom: space.md }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.sm }}>
+                      <Text style={[type.titleMd, { color: colors.onDark, flex: 1, marginRight: space.xs }]}>{reason}</Text>
+                      <Text style={[type.titleSm, { color: anyBroken ? colors.tradingDown : colors.tradingUp }]}>
+                        {anyBroken ? '비정상' : '정상'}
+                      </Text>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[type.bodyMd, { color: past ? colors.muted : c.condition_state === 'broken' ? colors.tradingDown : colors.body }]} numberOfLines={2}>{c.label}</Text>
-                      {c.next_check_date ? (
-                        <Text style={[type.numberSm, { color: colors.muted, marginTop: 1 }]}>
-                          {c.next_check_date.replaceAll('-', '.')}{past ? ' · 지남' : ''}
-                        </Text>
-                      ) : null}
-                    </View>
-                    {c.source === 'user' ? <Text style={[type.caption, { color: colors.muted, marginLeft: space.xs }]}>내 선택</Text> : null}
-                    <Text style={[type.caption, { color: meta.color, marginLeft: space.xs }]}>{meta.label}</Text>
-                  </View>
+                    {items.map((c) => {
+                      const meta = STATE_META[c.condition_state] ?? STATE_META.ok;
+                      const past = !!c.next_check_date && c.next_check_date < new Date().toISOString().slice(0, 10);
+                      const note = c.condition_state === 'broken'
+                        ? (c.state_note || '깨지는 조건에 해당하는 변화가 감지됐어요.')
+                        : '최근 점검에서 특이사항이 없었어요.';
+                      return (
+                        <View key={c.id} style={{ paddingVertical: space.sm, borderTopWidth: 1, borderTopColor: colors.hairlineOnDark }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: meta.color + '26', alignItems: 'center', justifyContent: 'center', marginRight: space.sm }}>
+                              <Text style={{ color: meta.color, fontSize: 11, fontWeight: '700' }}>{meta.icon}</Text>
+                            </View>
+                            <Text style={[type.titleSm, { color: past ? colors.muted : colors.body, flex: 1 }]} numberOfLines={2}>{c.label}</Text>
+                            {c.next_check_date ? (
+                              <Text style={[type.numberSm, { color: colors.muted, marginLeft: space.xs }]}>
+                                {c.next_check_date.slice(5).replace('-', '.')}{past ? '·지남' : ''}
+                              </Text>
+                            ) : null}
+                          </View>
+                          <Text style={[type.bodySm, { color: c.condition_state === 'broken' ? colors.tradingDown : colors.muted, marginTop: 2, marginLeft: 32 }]}>
+                            {note}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </Card>
                 );
-              })}
-              <Text style={[type.caption, { color: colors.muted, marginTop: space.sm }]}>매일 점검 때 깨짐 여부를 자동으로 추적해요</Text>
-            </>
-          )}
-        </Card>
+              });
+            })()}
+            <Text style={[type.caption, { color: colors.muted }]}>매일 점검 때 깨짐 여부를 자동으로 추적해요</Text>
+          </>
+        )
       ) : null}
 
       {/* ── 내 가설 탭 ── */}

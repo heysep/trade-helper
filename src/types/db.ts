@@ -32,6 +32,8 @@ export interface CheckCondition {
   next_check_date: string | null; status: 'open' | 'done';
   condition_state: 'ok' | 'warning' | 'broken';
   source: 'user' | 'ai';
+  reason_label: string | null;   // 어느 논점에서 나온 항목인지
+  state_note: string | null;     // 왜 정상/비정상인지 한 줄
 }
 export interface DailyScan {
   id: string; ticker: string; market: 'KRX' | 'US'; scan_date: string;

@@ -27,7 +27,7 @@ export function buildEvalPrompt(p: { buy_reason: string; break_conditions: strin
 오늘 스캔 요약: ${p.summary}
 
 스캔 내용이 가설/깨지는 조건에 미치는 영향을 판단해 다음 JSON만 출력:
-{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)","broken_labels":["깨졌거나 위험해진 감시 항목 라벨 (없으면 빈 배열, 목록에 있는 것만)"],"add_signal":false}\n\nadd_signal: 추가매수 조건이 있고 오늘 스캔 기준으로 그 조건이 충족됐으면 true. 조건이 없거나 불충족이면 false.
+{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)","broken":[{"label":"깨졌거나 위험해진 감시 항목 라벨 (목록에 있는 것만)","why":"왜 그런지 한 문장"}],"add_signal":false}\n\nadd_signal: 추가매수 조건이 있고 오늘 스캔 기준으로 그 조건이 충족됐으면 true. 조건이 없거나 불충족이면 false.
 
 작성 규칙: rationale에 URL·마크다운 링크 금지. 문장마다 \\n 줄바꿈, 짧게.`;
 }
@@ -110,7 +110,7 @@ async function ensureMacroEvents(db: any, call: typeof callOpenAI, _model: strin
 }
 
 interface ScanJson { summary: string; change_level: "none" | "minor" | "major"; sources: string[] }
-interface EvalJson { opinion: "hold" | "watch" | "reduce" | "exit"; rationale: string; broken_labels?: string[]; add_signal?: boolean }
+interface EvalJson { opinion: "hold" | "watch" | "reduce" | "exit"; rationale: string; broken?: Array<{ label: string; why?: string }>; broken_labels?: string[]; add_signal?: boolean }
 
 interface ThesisRow {
   id: string; user_id: string; buy_reason: string; break_conditions: string; add_conditions: string | null;
@@ -207,11 +207,14 @@ async function runBatch(market: "KRX" | "US", today: Date, deps?: { callFn?: typ
           const raw = await call({ model: evalModel, input: buildEvalPrompt({ buy_reason: t.buy_reason, break_conditions: t.break_conditions, add_conditions: t.add_conditions, summary: scan.summary, today: todayStr, watch_labels: watchLabels }), maxOutputTokens: 2000, reasoningEffort: 'low' });
           const ev = parseJsonBlock<EvalJson>(raw);
           opinion = ev.opinion; rationale = stripLinks(ev.rationale); addSignal = ev.add_signal === true; evaluated++; evalCalls++;
-          // 감시 항목 깨짐 상태 반영
-          const broken = new Set((ev.broken_labels ?? []).map((l) => l.trim()));
+          // 감시 항목 깨짐 상태 + 사유 반영 (구형 broken_labels 응답도 수용)
+          const brokenMap = new Map<string, string>();
+          for (const b of ev.broken ?? []) brokenMap.set(b.label.trim(), stripLinks(b.why ?? ""));
+          for (const l of ev.broken_labels ?? []) if (!brokenMap.has(l.trim())) brokenMap.set(l.trim(), "");
           for (const c of (conds ?? []) as Array<{ id: string; label: string }>) {
-            if (broken.has(c.label.trim())) {
-              await db.from("check_conditions").update({ condition_state: "broken" }).eq("id", c.id);
+            const why = brokenMap.get(c.label.trim());
+            if (why !== undefined) {
+              await db.from("check_conditions").update({ condition_state: "broken", state_note: why || null }).eq("id", c.id);
             }
           }
           await db.from("usage_daily").update({ eval_calls: evalCalls }).eq("usage_date", todayStr);
