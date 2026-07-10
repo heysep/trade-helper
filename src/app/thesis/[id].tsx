@@ -1,12 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, Text, View, ActivityIndicator, Alert, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useThesis, useCloseThesis } from '@/hooks/useTheses';
 import { useHoldings } from '@/hooks/useHoldings';
-import { useVerifyThesis } from '@/hooks/useVerifyThesis';
+import { useVerifyThesis, usePreviewVerify, useApplyVerify, VerifyResult } from '@/hooks/useVerifyThesis';
 import { PriceChart } from '@/components/PriceChart';
 import { Card } from '@/components/Card';
 import { PrimaryButton } from '@/components/PrimaryButton';
+import { ScoreRing } from '@/components/ScoreRing';
 import { DISCLAIMER } from '@/constants/brand';
 import { colors, type, space } from '@/theme';
 
@@ -35,8 +36,25 @@ export default function ThesisDetailScreen() {
   const { data: thesis, isLoading } = useThesis(id!);
   const { data: holdings } = useHoldings();
   const verify = useVerifyThesis();
+  const preview = usePreviewVerify();
+  const applyVerify = useApplyVerify();
   const close = useCloseThesis();
   const autoStarted = useRef(false);
+  const [pendingResult, setPendingResult] = useState<VerifyResult | null>(null);
+
+  const startRecheck = () => {
+    preview.mutate(id!, {
+      onSuccess: (r) => setPendingResult(r),
+      onError: (e) => Alert.alert('점검 실패', e.message),
+    });
+  };
+  const confirmOverwrite = () => {
+    if (!pendingResult) return;
+    applyVerify.mutate({ thesisId: id!, result: pendingResult }, {
+      onSuccess: () => setPendingResult(null),
+      onError: (e) => Alert.alert('저장 실패', e.message),
+    });
+  };
 
   // 등록 직후 진입하면 자동으로 AI 점검 시작 (버튼 한 번 더 누를 필요 없게)
   useEffect(() => {
@@ -79,9 +97,47 @@ export default function ThesisDetailScreen() {
         </Section>
       </Card>
 
+      {pendingResult ? (
+        <Card style={{ marginBottom: space.lg, borderWidth: 1, borderColor: colors.primary }}>
+          <Text style={[type.titleMd, { color: colors.primary, marginBottom: space.md }]}>새 점검 결과 (아직 저장 안 됨)</Text>
+          <View style={{ alignItems: 'center', marginBottom: space.md }}>
+            <ScoreRing score={pendingResult.score} />
+            {pendingResult.summary ? (
+              <Text style={[type.titleSm, { color: colors.onDark, textAlign: 'center', marginTop: space.md }]}>{pendingResult.summary}</Text>
+            ) : null}
+            <View style={{ flexDirection: 'row', gap: space.xs, marginTop: space.sm, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {pendingResult.reason_reviews.map((r, i) => <VerdictBadge key={i} verdict={r.verdict} />)}
+            </View>
+          </View>
+          <PrimaryButton
+            title={applyVerify.isPending ? '저장 중…' : '이 결과로 덮어쓰기'}
+            disabled={applyVerify.isPending}
+            onPress={confirmOverwrite}
+          />
+          <Pressable onPress={() => setPendingResult(null)} disabled={applyVerify.isPending}>
+            <Text style={[type.button, { color: colors.muted, textAlign: 'center', paddingVertical: space.sm }]}>기존 결과 유지</Text>
+          </Pressable>
+        </Card>
+      ) : null}
+
       {thesis.soundness_review ? (
         <Card style={{ marginBottom: space.lg }}>
           <Text style={[type.titleMd, { color: colors.onDark, marginBottom: space.md }]}>AI 점검 결과</Text>
+
+          {typeof thesis.soundness_review.score === 'number' ? (
+            <View style={{ alignItems: 'center', marginBottom: space.lg }}>
+              <ScoreRing score={thesis.soundness_review.score} />
+              {thesis.soundness_review.summary ? (
+                <Text style={[type.titleSm, { color: colors.onDark, textAlign: 'center', marginTop: space.md }]}>
+                  {thesis.soundness_review.summary}
+                </Text>
+              ) : null}
+              <View style={{ flexDirection: 'row', gap: space.xs, marginTop: space.sm, flexWrap: 'wrap', justifyContent: 'center' }}>
+                {(thesis.soundness_review.reason_reviews ?? []).map((r, i) => <VerdictBadge key={i} verdict={r.verdict} />)}
+              </View>
+              <Text style={[type.caption, { color: colors.muted, marginTop: space.xs }]}>AI의 주관적 점수 · 참고용</Text>
+            </View>
+          ) : null}
 
           {(thesis.soundness_review.reason_reviews ?? []).map((r, i) => (
             <View key={i} style={{ marginBottom: space.md, paddingBottom: space.md, borderBottomWidth: 1, borderBottomColor: colors.hairlineOnDark }}>
@@ -112,11 +168,13 @@ export default function ThesisDetailScreen() {
             ))}
           </Section>
 
-          <Pressable onPress={() => verify.mutate(id!, { onError: (e) => Alert.alert('검증 실패', e.message) })} disabled={verify.isPending}>
-            <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>
-              {verify.isPending ? '다시 점검 중…' : '다시 점검하기'}
-            </Text>
-          </Pressable>
+          {!pendingResult ? (
+            <Pressable onPress={startRecheck} disabled={preview.isPending}>
+              <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>
+                {preview.isPending ? '다시 점검 중… (기존 결과는 그대로 있어요)' : '다시 점검하기'}
+              </Text>
+            </Pressable>
+          ) : null}
         </Card>
       ) : verify.isPending ? (
         <Card style={{ marginBottom: space.lg, alignItems: 'center', paddingVertical: space.xl }}>

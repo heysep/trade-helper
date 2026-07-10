@@ -12,6 +12,8 @@ export interface ReasonReview {
 }
 export interface SoundnessReview {
   soundness?: string;               // 구버전 호환 (통짜 텍스트)
+  score?: number;                   // 합리성 점수 0~100 (AI 주관)
+  summary?: string;                 // 한 줄 총평
   reason_reviews?: ReasonReview[];  // 매수 이유별 개별 판정
   missing_points?: string[];        // 놓친 관점
   counterpoints: string[];

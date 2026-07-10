@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import { callOpenAI, parseJsonBlock, stripLinks } from "../_shared/openai.ts";
 
 interface VerifyResult {
+  score: number;
+  summary: string;
   reason_reviews: Array<{ reason: string; verdict: "타당" | "부분 타당" | "약함"; comment: string }>;
   missing_points: string[];
   counterpoints: string[];
@@ -18,7 +20,13 @@ export function buildVerifyPrompt(p: { name: string; ticker: string; market: str
 
 먼저 사용자의 매수 이유를 개별 논점으로 나눠라 (번호·줄바꿈·문장 단위).
 그 다음 웹검색으로 종목의 실제 상황과 다가오는 이벤트(실적발표일 등)를 확인하고, 다음 JSON만 출력:
-{"reason_reviews":[{"reason":"논점 요약 (20자 이내)","verdict":"타당|부분 타당|약함","comment":"왜 그런지 쉬운 말 1-2문장"}],"missing_points":["사용자가 놓친 관점 1-3개, 각 한 문장"],"counterpoints":["가설이 깨질 수 있는 시나리오 2-4개, 각 한 문장"],"check_conditions":[{"label":"확인 항목 (25자 이내)","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}
+{"score":0,"summary":"한 줄 총평 (40자 이내)","reason_reviews":[{"reason":"논점 요약 (20자 이내)","verdict":"타당|부분 타당|약함","comment":"왜 그런지 쉬운 말 1-2문장"}],"missing_points":["사용자가 놓친 관점 1-3개, 각 한 문장"],"counterpoints":["가설이 깨질 수 있는 시나리오 2-4개, 각 한 문장"],"check_conditions":[{"label":"확인 항목 (25자 이내)","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}
+
+score 채점 기준 (0~100 정수):
+- 사실 부합성 40점: 논거가 실제 데이터·뉴스와 맞는가
+- 논리 연결 30점: 근거→결론 인과가 끊기지 않는가
+- 리스크 인지 30점: 깨지는 조건이 구체적이고 핵심 리스크를 덮는가
+- 티커 오지정이면 30점 이하.
 
 작성 규칙:
 - 모든 문장은 쉬운 일상어로 써라. 어려운 용어를 쓰면 바로 뒤에 짧게 풀어써라. 예: "포워드 PER(내년 이익 대비 주가 배수)".
@@ -37,10 +45,42 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+function sanitizeResult(parsed: VerifyResult): VerifyResult {
+  return {
+    score: Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 0))),
+    summary: stripLinks(parsed.summary ?? ""),
+    reason_reviews: (parsed.reason_reviews ?? []).map((r) => ({ ...r, reason: stripLinks(r.reason), comment: stripLinks(r.comment) })),
+    missing_points: (parsed.missing_points ?? []).map(stripLinks),
+    counterpoints: (parsed.counterpoints ?? []).map(stripLinks),
+    check_conditions: (parsed.check_conditions ?? []).map((c) => ({ ...c, label: stripLinks(c.label) })),
+  };
+}
+
+// deno-lint-ignore no-explicit-any
+async function persistResult(supabase: any, thesis_id: string, result: VerifyResult): Promise<void> {
+  await supabase.from("theses").update({
+    soundness_review: {
+      score: result.score,
+      summary: result.summary,
+      reason_reviews: result.reason_reviews,
+      missing_points: result.missing_points,
+      counterpoints: result.counterpoints,
+    },
+  }).eq("id", thesis_id);
+  // 재검증 시 일정 중복 방지 — 기존 open 조건 삭제 후 재생성
+  await supabase.from("check_conditions").delete().eq("thesis_id", thesis_id).eq("status", "open");
+  if (result.check_conditions.length) {
+    await supabase.from("check_conditions").insert(
+      result.check_conditions.map((c) => ({ thesis_id, label: c.label, event_type: c.event_type, next_check_date: c.next_check_date })),
+    );
+  }
+}
+
 export async function handleVerify(req: Request, deps?: { callFn?: typeof callOpenAI }): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   try {
-    const { thesis_id } = await req.json();
+    // save=false → GPT 결과만 반환 (미리보기). apply → GPT 없이 전달된 결과 저장 (덮어쓰기 확정).
+    const { thesis_id, save, apply } = await req.json() as { thesis_id?: string; save?: boolean; apply?: VerifyResult };
     if (!thesis_id) return new Response(JSON.stringify({ error: "thesis_id required" }), { status: 400, headers: CORS_HEADERS });
 
     const supabase = createClient(
@@ -51,6 +91,13 @@ export async function handleVerify(req: Request, deps?: { callFn?: typeof callOp
     const { data: thesis, error } = await supabase
       .from("theses").select("*, holdings!inner(name, ticker, market)").eq("id", thesis_id).single();
     if (error || !thesis) return new Response(JSON.stringify({ error: "thesis not found" }), { status: 404, headers: CORS_HEADERS });
+
+    // 덮어쓰기 확정: 미리보기로 받아둔 결과를 GPT 재호출 없이 저장
+    if (apply) {
+      const applied = sanitizeResult(apply);
+      await persistResult(supabase, thesis_id, applied);
+      return new Response(JSON.stringify(applied), { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
+    }
 
     const call = deps?.callFn ?? callOpenAI;
     const raw = await call({
@@ -64,29 +111,9 @@ export async function handleVerify(req: Request, deps?: { callFn?: typeof callOp
       // verify는 종목·가설당 1회성 — 품질 우선 (medium + 넉넉한 토큰)
       webSearch: true, maxOutputTokens: 10000, reasoningEffort: 'medium',
     });
-    const parsed = parseJsonBlock<VerifyResult>(raw);
-    // web_search 자동 인용 제거
-    const result: VerifyResult = {
-      reason_reviews: (parsed.reason_reviews ?? []).map((r) => ({ ...r, reason: stripLinks(r.reason), comment: stripLinks(r.comment) })),
-      missing_points: (parsed.missing_points ?? []).map(stripLinks),
-      counterpoints: (parsed.counterpoints ?? []).map(stripLinks),
-      check_conditions: (parsed.check_conditions ?? []).map((c) => ({ ...c, label: stripLinks(c.label) })),
-    };
+    const result = sanitizeResult(parseJsonBlock<VerifyResult>(raw));
 
-    await supabase.from("theses").update({
-      soundness_review: {
-        reason_reviews: result.reason_reviews,
-        missing_points: result.missing_points,
-        counterpoints: result.counterpoints,
-      },
-    }).eq("id", thesis_id);
-    // 재검증 시 일정 중복 방지 — 기존 open 조건 삭제 후 재생성
-    await supabase.from("check_conditions").delete().eq("thesis_id", thesis_id).eq("status", "open");
-    if (result.check_conditions.length) {
-      await supabase.from("check_conditions").insert(
-        result.check_conditions.map((c) => ({ thesis_id, label: c.label, event_type: c.event_type, next_check_date: c.next_check_date })),
-      );
-    }
+    if (save !== false) await persistResult(supabase, thesis_id, result);
     return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: CORS_HEADERS });
