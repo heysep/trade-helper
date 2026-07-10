@@ -1,4 +1,4 @@
-import { validateThesisInput } from '../src/app/thesis/new';
+import { validateThesisInput } from '../src/lib/validate';
 
 it('requires buy_reason and break_conditions', () => {
   expect(validateThesisInput({ buy_reason: '', break_conditions: 'x', target_horizon: '1y' })).toContain('매수 이유');

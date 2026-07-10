@@ -1,6 +1,7 @@
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useCheckResults, CheckResultItem } from '@/hooks/useCheckResults';
+import { CheckResultItem } from '@/hooks/useCheckResults';
+import { useLatestResults } from '@/hooks/useLatestResults';
 import { CheckResultCard } from '@/components/CheckResultCard';
 import { EmptyState } from '@/components/EmptyState';
 import { DISCLAIMER } from '@/constants/brand';
@@ -9,7 +10,7 @@ import { colors, type, space } from '@/theme';
 function todayLabel(): string {
   const d = new Date();
   const dow = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
-  return `오늘 ${d.getMonth() + 1}/${d.getDate()} (${dow})`;
+  return `${d.getMonth() + 1}/${d.getDate()} (${dow}) · 가설별 최신 점검`;
 }
 
 /** 점검 결과 3분류: 추가매수 타이밍 / 관점 흔들림 / 관점 유지 */
@@ -38,8 +39,9 @@ function Group({ title, color, items, onPress }: {
 
 export default function ChecksScreen() {
   const router = useRouter();
-  const { data, isLoading, refetch, isRefetching } = useCheckResults();
-  const groups = groupResults(data ?? []);
+  const { data: latestMap, isLoading, refetch, isRefetching } = useLatestResults();
+  const data = latestMap ? [...latestMap.values()].filter((r) => (r as CheckResultItem & { theses: { status?: string } }).theses.status !== 'closed') : [];
+  const groups = groupResults(data);
   const goto = (item: CheckResultItem) => router.push(`/thesis/${item.theses.id}`);
 
   return (
@@ -49,8 +51,8 @@ export default function ChecksScreen() {
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />}
     >
       <Text style={[type.caption, { color: colors.muted, marginBottom: space.sm }]}>{todayLabel()}</Text>
-      {(data ?? []).length === 0 && !isLoading ? (
-        <EmptyState message={'오늘 점검 결과가 아직 없어요.\n점검은 장 마감 후 하루 1번 자동으로 돌아요.\n(국내 오후 5시 · 미국 다음날 아침)'} />
+      {data.length === 0 && !isLoading ? (
+        <EmptyState message={'점검 결과가 아직 없어요.\n다음 자동 점검: 국내 종목 오후 5시 · 미국 종목 다음날 아침 7시.\n급하면 가설 상세의 "지금 점검하기"를 눌러보세요.'} />
       ) : (
         <>
           <Group title="추가매수 타이밍" color={colors.primary} items={groups.addSignal} onPress={goto} />

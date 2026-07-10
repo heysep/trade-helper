@@ -122,7 +122,10 @@ async function ensureMacroEvents(db: any, call: typeof callOpenAI, _model: strin
     rows = rows.concat(normalizeEvents(parseJsonBlock<MacroJson>(rawKr), todayStr));
   } catch (e) { console.error(`korea macro fetch failed: ${e}`); }
 
-  if (rows.length) await db.from("market_events").upsert(rows, { onConflict: "event_date,label" });
+  if (rows.length) {
+    const stamped = rows.map((r) => ({ ...r, fetched_at: new Date().toISOString() }));
+    await db.from("market_events").upsert(stamped, { onConflict: "event_date,label" });
+  }
   return rows.length;
 }
 
@@ -199,12 +202,14 @@ async function runBatch(market: "KRX" | "US", today: Date, deps?: { callFn?: typ
         .eq("ticker", ticker).eq("market", market).eq("scan_date", todayStr).maybeSingle();
 
       if (!scan) {
-        if (webCalls >= cap) { console.error(`cap reached (${cap}), stopping scans`); break; }
+        // cap은 신규 웹검색만 차단 — 캐시된 스캔의 평가는 계속 (감사 M3)
+        if (webCalls >= cap) { console.error(`cap reached (${cap}), skipping new scans`); continue; }
         const raw = await call({ model: scanModel, input: buildScanPrompt({ ticker, market, name: group.name, today: todayStr }), webSearch: true, maxOutputTokens: 5000, reasoningEffort: 'low' });
         const parsed = parseJsonBlock<ScanJson>(raw);
-        const { data: inserted } = await db.from("daily_scans")
-          .insert({ ticker, market, scan_date: todayStr, summary: stripLinks(parsed.summary), change_level: parsed.change_level, sources: parsed.sources })
+        const { data: inserted, error: scanErr } = await db.from("daily_scans")
+          .upsert({ ticker, market, scan_date: todayStr, summary: stripLinks(parsed.summary), change_level: parsed.change_level, sources: parsed.sources }, { onConflict: "ticker,market,scan_date" })
           .select().single();
+        if (scanErr) console.error(`scan upsert ${ticker}: ${scanErr.message}`);
         scan = inserted; scanned++; webCalls++;
         await db.from("usage_daily").update({ web_search_calls: webCalls }).eq("usage_date", todayStr);
       }

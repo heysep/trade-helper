@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabase';
+import { registerPushToken } from './push';
 
 const Ctx = createContext<{ userId: string | null; ready: boolean }>({ userId: null, ready: false });
 export const useSession = () => useContext(Ctx);
@@ -12,8 +13,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (!session) {
         const { data, error } = await supabase.auth.signInAnonymously();
         setState({ userId: error ? null : data.session?.user.id ?? null, ready: true });
+        if (!error && data.session) registerPushToken(); // 세션 확정 후 등록 (감사 M9)
       } else {
         setState({ userId: session.user.id, ready: true });
+        registerPushToken();
       }
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {

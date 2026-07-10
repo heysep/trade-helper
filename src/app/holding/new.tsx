@@ -7,7 +7,7 @@ import { useAddUserConditions } from '@/hooks/useCheckConditions';
 import { useSuggest, SuggestResult } from '@/hooks/useSuggest';
 import { useDialog } from '@/components/Dialog';
 import { tickerExists } from '@/lib/ticker';
-import { validateThesisInput } from '../thesis/new';
+import { validateThesisInput } from '@/lib/validate';
 import { TextField } from '@/components/TextField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { DISCLAIMER } from '@/constants/brand';

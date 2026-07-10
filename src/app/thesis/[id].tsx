@@ -182,10 +182,16 @@ export default function ThesisDetailScreen() {
       { text: '취소', style: 'cancel' },
     ] });
   };
+  const offerHistory = () => {
+    dialog.show({ title: '가설 종료됨', message: '히스토리에 기록됐어요. 지금 복기해 볼까요?', buttons: [
+      { text: '히스토리 보기', onPress: () => router.push('/history') },
+      { text: '나중에', style: 'cancel' },
+    ] });
+  };
   const confirmClose = () => {
     dialog.show({ title: '가설 종료', message: '이 가설의 결과를 기록합니다. 종료 후 히스토리에서 복기할 수 있어요.', buttons: [
-      { text: '성공으로 기록', onPress: () => close.mutate({ thesisId: id!, outcome: 'success' }) },
-      { text: '실패로 기록', style: 'destructive', onPress: () => close.mutate({ thesisId: id!, outcome: 'fail' }) },
+      { text: '성공으로 기록', onPress: () => close.mutate({ thesisId: id!, outcome: 'success' }, { onSuccess: offerHistory }) },
+      { text: '실패로 기록', style: 'destructive', onPress: () => close.mutate({ thesisId: id!, outcome: 'fail' }, { onSuccess: offerHistory }) },
       { text: '취소', style: 'cancel' },
     ] });
   };

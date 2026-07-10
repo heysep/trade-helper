@@ -49,7 +49,8 @@ export async function handleSuggest(req: Request, deps?: { callFn?: typeof callO
     };
     return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: CORS_HEADERS });
+    console.error(`gpt-suggest: ${e}`);
+    return new Response(JSON.stringify({ error: "추천 처리 중 문제가 발생했어요" }), { status: 500, headers: CORS_HEADERS });
   }
 }
 

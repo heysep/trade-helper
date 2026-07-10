@@ -7,7 +7,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SessionProvider } from '@/lib/session';
 import { ToastProvider } from '@/components/Toast';
 import { DialogProvider } from '@/components/Dialog';
-import { registerPushToken } from '@/lib/push';
 import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -28,7 +27,6 @@ export default function RootLayout() {
     IBMPlexMono_500Medium, IBMPlexMono_700Bold,
   });
   useEffect(() => { if (loaded) SplashScreen.hideAsync(); }, [loaded]);
-  useEffect(() => { registerPushToken(); }, []);
   if (!loaded) return null;
   return (
     <QueryClientProvider client={queryClient}>

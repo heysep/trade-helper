@@ -179,7 +179,8 @@ export async function handleVerify(req: Request, deps?: { callFn?: typeof callOp
     if (save !== false) await persistResult(supabase, thesis_id, result);
     return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: CORS_HEADERS });
+    console.error(`gpt-verify: ${e}`);
+    return new Response(JSON.stringify({ error: "검증 처리 중 문제가 발생했어요" }), { status: 500, headers: CORS_HEADERS });
   }
 }
 

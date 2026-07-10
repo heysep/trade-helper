@@ -66,12 +66,12 @@ export async function handleCheckNow(req: Request, deps?: { callFn?: typeof call
     const stateMap = new Map<string, { state: string; why: string }>();
     for (const c of ev.checks ?? []) stateMap.set(c.label.trim(), { state: c.state === "broken" ? "broken" : "ok", why: stripLinks(c.why ?? "") });
     for (const b of ev.broken ?? []) stateMap.set(b.label.trim(), { state: "broken", why: stripLinks(b.why ?? "") });
+    // 모델이 언급한 항목만 갱신 — 누락 항목의 기존 상태/과거 확인 노트 보존 (감사 M1)
     for (const c of (conds ?? []) as Array<{ id: string; label: string }>) {
       const st = stateMap.get(c.label.trim());
-      await db.from("check_conditions").update({
-        condition_state: st?.state ?? "ok",
-        state_note: st?.why || null,
-      }).eq("id", c.id);
+      if (st) {
+        await db.from("check_conditions").update({ condition_state: st.state, state_note: st.why || null }).eq("id", c.id);
+      }
     }
 
     return new Response(JSON.stringify({
@@ -80,7 +80,8 @@ export async function handleCheckNow(req: Request, deps?: { callFn?: typeof call
       broken: [...stateMap.entries()].filter(([, v]) => v.state === "broken").map(([k]) => k),
     }), { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: CORS_HEADERS });
+    console.error(`check-now: ${e}`);
+    return new Response(JSON.stringify({ error: "점검 처리 중 문제가 발생했어요" }), { status: 500, headers: CORS_HEADERS });
   }
 }
 

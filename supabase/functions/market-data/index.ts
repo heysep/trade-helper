@@ -5,8 +5,9 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-function toYahooSymbol(ticker: string, market: string): string {
-  return market === "KRX" ? `${ticker}.KS` : ticker;
+function candidates(ticker: string, market: string): string[] {
+  // KRX는 코스피(.KS) 실패 시 코스닥(.KQ) 재시도 (감사 M7)
+  return market === "KRX" ? [`${ticker}.KS`, `${ticker}.KQ`] : [ticker];
 }
 
 export async function handleMarketData(req: Request, fetchFn: typeof fetch = fetch): Promise<Response> {
@@ -16,23 +17,27 @@ export async function handleMarketData(req: Request, fetchFn: typeof fetch = fet
     if (!ticker || !market) {
       return new Response(JSON.stringify({ error: "ticker, market required" }), { status: 400, headers: CORS_HEADERS });
     }
-    const symbol = toYahooSymbol(ticker.toUpperCase(), market);
-    const safeRange = ["5d", "1mo", "3mo", "6mo", "1y"].includes(range ?? "") ? range : "3mo";
-    const res = await fetchFn(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${safeRange}&interval=1d`,
-      { headers: { "User-Agent": "Mozilla/5.0" } },
-    );
-    if (!res.ok) {
+    if (!/^[0-9A-Za-z.\-]{1,12}$/.test(ticker)) {
       return new Response(JSON.stringify({ exists: false, closes: [] }), { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
     }
-    const data = await res.json();
-    const raw: (number | null)[] = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? [];
-    const closes = raw.filter((v: number | null): v is number => typeof v === "number");
-    return new Response(JSON.stringify({ exists: closes.length >= 2, closes }), {
-      status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS },
-    });
+    const safeRange = ["5d", "1mo", "3mo", "6mo", "1y"].includes(range ?? "") ? range : "3mo";
+    for (const symbol of candidates(ticker.toUpperCase(), market)) {
+      const res = await fetchFn(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${safeRange}&interval=1d`,
+        { headers: { "User-Agent": "Mozilla/5.0" } },
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      const raw: (number | null)[] = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? [];
+      const closes = raw.filter((v: number | null): v is number => typeof v === "number");
+      if (closes.length >= 2) {
+        return new Response(JSON.stringify({ exists: true, closes }), { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
+      }
+    }
+    return new Response(JSON.stringify({ exists: false, closes: [] }), { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: CORS_HEADERS });
+    console.error(`market-data: ${e}`);
+    return new Response(JSON.stringify({ error: "시세 조회 실패" }), { status: 500, headers: CORS_HEADERS });
   }
 }
 
