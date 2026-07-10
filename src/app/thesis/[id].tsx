@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, Text, View, ActivityIndicator, Alert, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useThesis, useCloseThesis, useAppendThesisField } from '@/hooks/useTheses';
+import { useThesis, useCloseThesis, useAppendThesisField, useUpdateThesis } from '@/hooks/useTheses';
 import { useHoldings } from '@/hooks/useHoldings';
 import { useThesisConditions } from '@/hooks/useCheckConditions';
-import { useVerifyThesis, usePreviewVerify, useApplyVerify, VerifyResult } from '@/hooks/useVerifyThesis';
+import { useVerifyThesis, usePreviewVerify, useApplyVerify, useReviseThesis, VerifyResult, ReviseResult } from '@/hooks/useVerifyThesis';
 import { PriceChart } from '@/components/PriceChart';
 import { Card } from '@/components/Card';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { ScoreRing } from '@/components/ScoreRing';
+import { TextField } from '@/components/TextField';
 import { DISCLAIMER } from '@/constants/brand';
 import { colors, type, space, radius } from '@/theme';
 
@@ -53,9 +54,9 @@ function AdoptRow({ text, color, adopted, onAdopt }: { text: string; color: stri
 
 type Tab = 'ai' | 'watch' | 'mine';
 const TABS: Array<{ key: Tab; label: string }> = [
-  { key: 'ai', label: 'AI 분석' },
-  { key: 'watch', label: '감시 항목' },
   { key: 'mine', label: '내 가설' },
+  { key: 'watch', label: '감시 항목' },
+  { key: 'ai', label: 'AI 분석' },
 ];
 
 export default function ThesisDetailScreen() {
@@ -68,9 +69,49 @@ export default function ThesisDetailScreen() {
   const applyVerify = useApplyVerify();
   const appendField = useAppendThesisField();
   const close = useCloseThesis();
+  const updateThesis = useUpdateThesis();
+  const reviseThesis = useReviseThesis();
   const autoStarted = useRef(false);
   const [pendingResult, setPendingResult] = useState<VerifyResult | null>(null);
-  const [tab, setTab] = useState<Tab>('ai');
+  const [tab, setTab] = useState<Tab>('mine');
+  const [editing, setEditing] = useState(false);
+  const [eBuy, setEBuy] = useState('');
+  const [eBreak, setEBreak] = useState('');
+  const [eAdd, setEAdd] = useState('');
+  const [eHorizon, setEHorizon] = useState('');
+  const [revision, setRevision] = useState<ReviseResult | null>(null);
+
+  const startEdit = () => {
+    if (!thesis) return;
+    setEBuy(thesis.buy_reason);
+    setEBreak(thesis.break_conditions);
+    setEAdd(thesis.add_conditions ?? '');
+    setEHorizon(thesis.target_horizon);
+    setEditing(true);
+  };
+  const saveEdit = () => {
+    if (!eBuy.trim() || !eBreak.trim()) { Alert.alert('입력 확인', '매수 이유와 깨지는 조건은 비울 수 없어요.'); return; }
+    updateThesis.mutate({
+      thesisId: id!,
+      fields: { buy_reason: eBuy.trim(), break_conditions: eBreak.trim(), add_conditions: eAdd.trim() || null, target_horizon: eHorizon.trim() },
+    }, { onSuccess: () => setEditing(false), onError: (e) => Alert.alert('저장 실패', e.message) });
+  };
+  const askRevision = () => {
+    reviseThesis.mutate(id!, {
+      onSuccess: (r) => setRevision(r),
+      onError: (e) => Alert.alert('수정안 실패', e.message),
+    });
+  };
+  const applyRevision = () => {
+    if (!revision) return;
+    updateThesis.mutate({
+      thesisId: id!,
+      fields: { buy_reason: revision.buy_reason, break_conditions: revision.break_conditions, add_conditions: revision.add_conditions },
+    }, {
+      onSuccess: () => { setRevision(null); setTab('mine'); },
+      onError: (e) => Alert.alert('적용 실패', e.message),
+    });
+  };
 
   useEffect(() => {
     if (thesis && !thesis.soundness_review && thesis.status !== 'closed' && !autoStarted.current && !verify.isPending) {
@@ -189,9 +230,38 @@ export default function ThesisDetailScreen() {
                 ))}
               </Section>
             ) : null}
+            {revision ? (
+              <View style={{ borderWidth: 1, borderColor: colors.primary, borderRadius: radius.lg, padding: space.md, marginBottom: space.md }}>
+                <Text style={[type.titleSm, { color: colors.primary, marginBottom: space.sm }]}>🤖 피드백 반영 수정안 (아직 적용 안 됨)</Text>
+                <Section title="매수 이유">
+                  <Text style={[type.bodyMd, { color: colors.body }]}>{revision.buy_reason}</Text>
+                </Section>
+                <Section title="깨지는 조건">
+                  <Text style={[type.bodyMd, { color: colors.body }]}>{revision.break_conditions}</Text>
+                </Section>
+                {revision.add_conditions ? (
+                  <Section title="추가매수 조건">
+                    <Text style={[type.bodyMd, { color: colors.body }]}>{revision.add_conditions}</Text>
+                  </Section>
+                ) : null}
+                {revision.note ? (
+                  <Text style={[type.bodySm, { color: colors.statusWatch, marginBottom: space.md }]}>바뀐 점: {revision.note}</Text>
+                ) : null}
+                <PrimaryButton title={updateThesis.isPending ? '적용 중…' : '이 수정안 적용하기'} onPress={applyRevision} disabled={updateThesis.isPending} />
+                <Pressable onPress={() => setRevision(null)} disabled={updateThesis.isPending}>
+                  <Text style={[type.button, { color: colors.muted, textAlign: 'center', paddingVertical: space.sm }]}>무시</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable onPress={askRevision} disabled={reviseThesis.isPending}>
+                <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>
+                  {reviseThesis.isPending ? '수정안 만드는 중…' : '🤖 피드백 반영해 가설 수정안 받기'}
+                </Text>
+              </Pressable>
+            )}
             {!pendingResult ? (
               <Pressable onPress={startRecheck} disabled={preview.isPending}>
-                <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>
+                <Text style={[type.button, { color: colors.mutedStrong, textAlign: 'center', paddingVertical: space.xs }]}>
                   {preview.isPending ? '다시 점검 중… (기존 결과는 그대로)' : '다시 점검하기'}
                 </Text>
               </Pressable>
@@ -245,20 +315,40 @@ export default function ThesisDetailScreen() {
       {tab === 'mine' ? (
         <>
           <Card style={{ marginBottom: space.md }}>
-            <Section title="매수 이유">
-              <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.buy_reason}</Text>
-            </Section>
-            <Section title="깨지는 조건">
-              <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.break_conditions}</Text>
-            </Section>
-            {thesis.add_conditions ? (
-              <Section title="추가매수 조건">
-                <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.add_conditions}</Text>
-              </Section>
-            ) : null}
-            <Section title="목표 보유 기간">
-              <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.target_horizon}</Text>
-            </Section>
+            {editing ? (
+              <>
+                <TextField dark label="매수 이유 (가설)" value={eBuy} onChangeText={setEBuy} multiline />
+                <TextField dark label="가설이 깨지는 조건" value={eBreak} onChangeText={setEBreak} multiline />
+                <TextField dark label="추가매수 조건 (선택)" value={eAdd} onChangeText={setEAdd} multiline />
+                <TextField dark label="목표 보유 기간" value={eHorizon} onChangeText={setEHorizon} />
+                <PrimaryButton title={updateThesis.isPending ? '저장 중…' : '저장'} onPress={saveEdit} disabled={updateThesis.isPending} />
+                <Pressable onPress={() => setEditing(false)} disabled={updateThesis.isPending}>
+                  <Text style={[type.button, { color: colors.muted, textAlign: 'center', paddingVertical: space.sm }]}>취소</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Section title="매수 이유">
+                  <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.buy_reason}</Text>
+                </Section>
+                <Section title="깨지는 조건">
+                  <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.break_conditions}</Text>
+                </Section>
+                {thesis.add_conditions ? (
+                  <Section title="추가매수 조건">
+                    <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.add_conditions}</Text>
+                  </Section>
+                ) : null}
+                <Section title="목표 보유 기간">
+                  <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.target_horizon}</Text>
+                </Section>
+                {thesis.status !== 'closed' ? (
+                  <Pressable onPress={startEdit}>
+                    <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>✏️ 가설 수정하기</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            )}
           </Card>
           {thesis.status !== 'closed' ? (
             <Pressable onPress={confirmClose} disabled={close.isPending}

@@ -37,6 +37,21 @@ export function usePreviewVerify() {
   });
 }
 
+export interface ReviseResult {
+  buy_reason: string; break_conditions: string; add_conditions: string | null; note: string;
+}
+
+/** AI 피드백 반영한 가설 수정안 (저장 안 함 — 사용자가 확인 후 적용) */
+export function useReviseThesis() {
+  return useMutation({
+    mutationFn: async (thesisId: string) => {
+      const { data, error } = await supabase.functions.invoke('gpt-verify', { body: { thesis_id: thesisId, revise: true } });
+      if (error) throw new Error('수정안 생성 실패 — 잠시 후 다시 시도해 주세요.');
+      return data as ReviseResult;
+    },
+  });
+}
+
 /** 미리보기 결과로 덮어쓰기 확정 (GPT 재호출 없음) */
 export function useApplyVerify() {
   const qc = useQueryClient();

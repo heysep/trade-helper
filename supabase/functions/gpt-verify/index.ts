@@ -40,6 +40,23 @@ score 채점 기준 (0~100 정수):
 - 반드시 완전하고 유효한 JSON으로 끝내라.`;
 }
 
+export function buildRevisePrompt(p: { buy_reason: string; break_conditions: string; add_conditions: string | null; review: unknown }): string {
+  return `당신은 투자 가설 수정 도우미다. 아래 사용자의 가설과 AI 점검 피드백을 반영해, 가설을 더 구체적이고 검증 가능하게 다듬어라. 사용자의 원래 의도와 관점은 유지하고, 피드백에서 지적된 약점만 보완하라. "매수하세요" 표현 금지.
+
+[현재 가설]
+매수 이유: ${p.buy_reason}
+깨지는 조건: ${p.break_conditions}
+추가매수 조건: ${p.add_conditions ?? "(없음)"}
+
+[AI 점검 피드백]
+${JSON.stringify(p.review)}
+
+다음 JSON만 출력 (URL 금지, 쉬운 말, 각 항목 줄바꿈 구분):
+{"buy_reason":"수정된 매수 이유","break_conditions":"수정된 깨지는 조건 (정량 기준 포함)","add_conditions":"수정된 추가매수 조건 또는 null","note":"무엇을 왜 바꿨는지 한두 문장"}`;
+}
+
+interface ReviseResult { buy_reason: string; break_conditions: string; add_conditions: string | null; note: string }
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -82,8 +99,8 @@ async function persistResult(supabase: any, thesis_id: string, result: VerifyRes
 export async function handleVerify(req: Request, deps?: { callFn?: typeof callOpenAI }): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   try {
-    // save=false → GPT 결과만 반환 (미리보기). apply → GPT 없이 전달된 결과 저장 (덮어쓰기 확정).
-    const { thesis_id, save, apply } = await req.json() as { thesis_id?: string; save?: boolean; apply?: VerifyResult };
+    // save=false → GPT 결과만 반환 (미리보기). apply → GPT 없이 전달된 결과 저장. revise → 피드백 반영 수정안 생성 (저장 안 함).
+    const { thesis_id, save, apply, revise } = await req.json() as { thesis_id?: string; save?: boolean; apply?: VerifyResult; revise?: boolean };
     if (!thesis_id) return new Response(JSON.stringify({ error: "thesis_id required" }), { status: 400, headers: CORS_HEADERS });
 
     const supabase = createClient(
@@ -94,6 +111,30 @@ export async function handleVerify(req: Request, deps?: { callFn?: typeof callOp
     const { data: thesis, error } = await supabase
       .from("theses").select("*, holdings!inner(name, ticker, market)").eq("id", thesis_id).single();
     if (error || !thesis) return new Response(JSON.stringify({ error: "thesis not found" }), { status: 404, headers: CORS_HEADERS });
+
+    // 피드백 반영 수정안: 기존 점검 결과 기반, 웹검색 없이 저가 호출. 저장은 클라이언트가 확인 후.
+    if (revise) {
+      if (!thesis.soundness_review) {
+        return new Response(JSON.stringify({ error: "review required before revise" }), { status: 400, headers: CORS_HEADERS });
+      }
+      const call2 = deps?.callFn ?? callOpenAI;
+      const rawRevise = await call2({
+        model: Deno.env.get("OPENAI_MODEL_EVAL") ?? "gpt-5-mini",
+        input: buildRevisePrompt({
+          buy_reason: thesis.buy_reason, break_conditions: thesis.break_conditions,
+          add_conditions: thesis.add_conditions, review: thesis.soundness_review,
+        }),
+        maxOutputTokens: 3000, reasoningEffort: "low",
+      });
+      const rev = parseJsonBlock<ReviseResult>(rawRevise);
+      const cleaned: ReviseResult = {
+        buy_reason: stripLinks(rev.buy_reason ?? ""),
+        break_conditions: stripLinks(rev.break_conditions ?? ""),
+        add_conditions: rev.add_conditions ? stripLinks(rev.add_conditions) : null,
+        note: stripLinks(rev.note ?? ""),
+      };
+      return new Response(JSON.stringify(cleaned), { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
+    }
 
     // 덮어쓰기 확정: 미리보기로 받아둔 결과를 GPT 재호출 없이 저장
     if (apply) {

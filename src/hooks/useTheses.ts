@@ -26,6 +26,24 @@ export function useThesis(id: string) {
   });
 }
 
+/** 내 가설 직접 수정 */
+export function useUpdateThesis() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ thesisId, fields }: {
+      thesisId: string;
+      fields: Partial<Pick<Thesis, 'buy_reason' | 'break_conditions' | 'add_conditions' | 'target_horizon'>>;
+    }) => {
+      const { error } = await supabase.from('theses').update(fields).eq('id', thesisId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, { thesisId }) => {
+      qc.invalidateQueries({ queryKey: ['thesis', thesisId] });
+      qc.invalidateQueries({ queryKey: ['theses'] });
+    },
+  });
+}
+
 /** AI 후보 채택: 깨지는 조건/추가매수 조건 텍스트에 한 줄 추가 */
 export function useAppendThesisField() {
   const qc = useQueryClient();
