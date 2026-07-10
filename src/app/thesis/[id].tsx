@@ -10,6 +10,7 @@ import { Card } from '@/components/Card';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { ScoreRing } from '@/components/ScoreRing';
 import { TextField } from '@/components/TextField';
+import { NumberedText } from '@/components/NumberedText';
 import { DISCLAIMER } from '@/constants/brand';
 import { colors, type, space, radius } from '@/theme';
 
@@ -103,6 +104,13 @@ export default function ThesisDetailScreen() {
     });
   };
   const applyRevision = () => {
+    if (!revision) return;
+    Alert.alert('수정안 적용', '내 가설이 이 수정안으로 바뀝니다. 적용할까요?', [
+      { text: '적용', onPress: doApplyRevision },
+      { text: '취소', style: 'cancel' },
+    ]);
+  };
+  const doApplyRevision = () => {
     if (!revision) return;
     updateThesis.mutate({
       thesisId: id!,
@@ -232,16 +240,16 @@ export default function ThesisDetailScreen() {
             ) : null}
             {revision ? (
               <View style={{ borderWidth: 1, borderColor: colors.primary, borderRadius: radius.lg, padding: space.md, marginBottom: space.md }}>
-                <Text style={[type.titleSm, { color: colors.primary, marginBottom: space.sm }]}>🤖 피드백 반영 수정안 (아직 적용 안 됨)</Text>
+                <Text style={[type.titleSm, { color: colors.primary, marginBottom: space.sm }]}>피드백 반영 수정안 (아직 적용 안 됨)</Text>
                 <Section title="매수 이유">
-                  <Text style={[type.bodyMd, { color: colors.body }]}>{revision.buy_reason}</Text>
+                  <NumberedText text={revision.buy_reason} />
                 </Section>
                 <Section title="깨지는 조건">
-                  <Text style={[type.bodyMd, { color: colors.body }]}>{revision.break_conditions}</Text>
+                  <NumberedText text={revision.break_conditions} />
                 </Section>
                 {revision.add_conditions ? (
                   <Section title="추가매수 조건">
-                    <Text style={[type.bodyMd, { color: colors.body }]}>{revision.add_conditions}</Text>
+                    <NumberedText text={revision.add_conditions} />
                   </Section>
                 ) : null}
                 {revision.note ? (
@@ -255,7 +263,7 @@ export default function ThesisDetailScreen() {
             ) : (
               <Pressable onPress={askRevision} disabled={reviseThesis.isPending}>
                 <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>
-                  {reviseThesis.isPending ? '수정안 만드는 중…' : '🤖 피드백 반영해 가설 수정안 받기'}
+                  {reviseThesis.isPending ? '수정안 만드는 중…' : '피드백 반영 수정안 받기'}
                 </Text>
               </Pressable>
             )}
@@ -329,14 +337,14 @@ export default function ThesisDetailScreen() {
             ) : (
               <>
                 <Section title="매수 이유">
-                  <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.buy_reason}</Text>
+                  <NumberedText text={thesis.buy_reason} />
                 </Section>
                 <Section title="깨지는 조건">
-                  <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.break_conditions}</Text>
+                  <NumberedText text={thesis.break_conditions} />
                 </Section>
                 {thesis.add_conditions ? (
                   <Section title="추가매수 조건">
-                    <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.add_conditions}</Text>
+                    <NumberedText text={thesis.add_conditions} />
                   </Section>
                 ) : null}
                 <Section title="목표 보유 기간">
@@ -344,7 +352,7 @@ export default function ThesisDetailScreen() {
                 </Section>
                 {thesis.status !== 'closed' ? (
                   <Pressable onPress={startEdit}>
-                    <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>✏️ 가설 수정하기</Text>
+                    <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>가설 수정하기</Text>
                   </Pressable>
                 ) : null}
               </>

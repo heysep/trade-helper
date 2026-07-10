@@ -51,8 +51,12 @@ export function buildRevisePrompt(p: { buy_reason: string; break_conditions: str
 [AI 점검 피드백]
 ${JSON.stringify(p.review)}
 
-다음 JSON만 출력 (URL 금지, 쉬운 말, 각 항목 줄바꿈 구분):
-{"buy_reason":"수정된 매수 이유","break_conditions":"수정된 깨지는 조건 (정량 기준 포함)","add_conditions":"수정된 추가매수 조건 또는 null","note":"무엇을 왜 바꿨는지 한두 문장"}`;
+다음 JSON만 출력 (URL 금지, 쉬운 말):
+{"buy_reason":"수정된 매수 이유","break_conditions":"수정된 깨지는 조건 (정량 기준 포함)","add_conditions":"수정된 추가매수 조건 또는 null","note":"무엇을 바꿨는지 한 문장"}
+
+작성 규칙:
+- 각 필드는 번호 목록으로: "1. …\\n2. …" 형식, 항목당 한 문장 (40자 이내).
+- 항목 수는 원문과 비슷하게. 원문보다 길어지지 마라. 전체적으로 짧고 명확하게.`;
 }
 
 interface ReviseResult { buy_reason: string; break_conditions: string; add_conditions: string | null; note: string }

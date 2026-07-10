@@ -40,4 +40,5 @@ export interface DailyScan {
 export interface CheckResult {
   id: string; thesis_id: string; check_date: string;
   opinion: Opinion; rationale: string; scan_ref: string | null;
+  add_signal: boolean;
 }

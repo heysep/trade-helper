@@ -17,16 +17,17 @@ export function buildScanPrompt(p: { ticker: string; market: string; name: strin
 작성 규칙: summary에는 URL·마크다운 링크 금지 (링크는 sources 배열에만). 문장 짧게.`;
 }
 
-export function buildEvalPrompt(p: { buy_reason: string; break_conditions: string; summary: string; today: string; watch_labels?: string[] }): string {
+export function buildEvalPrompt(p: { buy_reason: string; break_conditions: string; add_conditions?: string | null; summary: string; today: string; watch_labels?: string[] }): string {
   const watch = (p.watch_labels ?? []).length ? `\n감시 항목: ${p.watch_labels!.join(" / ")}` : "";
+  const addc = p.add_conditions ? `\n추가매수 조건: ${p.add_conditions}` : "";
   return `당신은 투자 가설 점검 보조 도구다. 자문·추천 금지. "매수/매도하세요" 표현 금지. 가설 대비 변화만 서술.
 오늘: ${p.today}
 사용자 가설: ${p.buy_reason}
-깨지는 조건: ${p.break_conditions}${watch}
+깨지는 조건: ${p.break_conditions}${addc}${watch}
 오늘 스캔 요약: ${p.summary}
 
 스캔 내용이 가설/깨지는 조건에 미치는 영향을 판단해 다음 JSON만 출력:
-{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)","broken_labels":["오늘 스캔 기준으로 깨졌거나 위험해진 감시 항목의 라벨 (없으면 빈 배열, 감시 항목 목록에 있는 것만)"]}
+{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)","broken_labels":["깨졌거나 위험해진 감시 항목 라벨 (없으면 빈 배열, 목록에 있는 것만)"],"add_signal":false}\n\nadd_signal: 추가매수 조건이 있고 오늘 스캔 기준으로 그 조건이 충족됐으면 true. 조건이 없거나 불충족이면 false.
 
 작성 규칙: rationale에 URL·마크다운 링크 금지. 문장마다 \\n 줄바꿈, 짧게.`;
 }
@@ -109,10 +110,10 @@ async function ensureMacroEvents(db: any, call: typeof callOpenAI, _model: strin
 }
 
 interface ScanJson { summary: string; change_level: "none" | "minor" | "major"; sources: string[] }
-interface EvalJson { opinion: "hold" | "watch" | "reduce" | "exit"; rationale: string; broken_labels?: string[] }
+interface EvalJson { opinion: "hold" | "watch" | "reduce" | "exit"; rationale: string; broken_labels?: string[]; add_signal?: boolean }
 
 interface ThesisRow {
-  id: string; user_id: string; buy_reason: string; break_conditions: string;
+  id: string; user_id: string; buy_reason: string; break_conditions: string; add_conditions: string | null;
   holdings: { id: string; ticker: string; market: string; name: string };
 }
 
@@ -150,7 +151,7 @@ async function runBatch(market: "KRX" | "US", today: Date, deps?: { callFn?: typ
   // 활성 가설 + 종목 로드
   const { data: theses, error } = await db
     .from("theses")
-    .select("id, user_id, buy_reason, break_conditions, holdings!inner(id, ticker, market, name)")
+    .select("id, user_id, buy_reason, break_conditions, add_conditions, holdings!inner(id, ticker, market, name)")
     .neq("status", "closed")
     .eq("holdings.market", market);
   if (error) throw new Error(error.message);
@@ -199,12 +200,13 @@ async function runBatch(market: "KRX" | "US", today: Date, deps?: { callFn?: typ
 
         let opinion: EvalJson["opinion"] = "hold";
         let rationale = "오늘은 가설을 변경할 만한 새로운 정보가 없습니다.";
+        let addSignal = false;
         if (decideEval(scan) === "eval") {
           const { data: conds } = await db.from("check_conditions").select("id, label").eq("thesis_id", t.id).eq("status", "open");
           const watchLabels = (conds ?? []).map((c: { label: string }) => c.label);
-          const raw = await call({ model: evalModel, input: buildEvalPrompt({ buy_reason: t.buy_reason, break_conditions: t.break_conditions, summary: scan.summary, today: todayStr, watch_labels: watchLabels }), maxOutputTokens: 2000, reasoningEffort: 'low' });
+          const raw = await call({ model: evalModel, input: buildEvalPrompt({ buy_reason: t.buy_reason, break_conditions: t.break_conditions, add_conditions: t.add_conditions, summary: scan.summary, today: todayStr, watch_labels: watchLabels }), maxOutputTokens: 2000, reasoningEffort: 'low' });
           const ev = parseJsonBlock<EvalJson>(raw);
-          opinion = ev.opinion; rationale = stripLinks(ev.rationale); evaluated++; evalCalls++;
+          opinion = ev.opinion; rationale = stripLinks(ev.rationale); addSignal = ev.add_signal === true; evaluated++; evalCalls++;
           // 감시 항목 깨짐 상태 반영
           const broken = new Set((ev.broken_labels ?? []).map((l) => l.trim()));
           for (const c of (conds ?? []) as Array<{ id: string; label: string }>) {
@@ -215,8 +217,8 @@ async function runBatch(market: "KRX" | "US", today: Date, deps?: { callFn?: typ
           await db.from("usage_daily").update({ eval_calls: evalCalls }).eq("usage_date", todayStr);
         } else { skipped++; }
 
-        await db.from("check_results").insert({ thesis_id: t.id, check_date: todayStr, opinion, rationale, scan_ref: scan.id });
-        if (opinion !== "hold") {
+        await db.from("check_results").insert({ thesis_id: t.id, check_date: todayStr, opinion, rationale, scan_ref: scan.id, add_signal: addSignal });
+        if (opinion !== "hold" || addSignal) {
           const { data: prof } = await db.from("profiles").select("expo_push_token").eq("id", t.user_id).single();
           if (prof?.expo_push_token) {
             await fetch("https://exp.host/--/api/v2/push/send", {
