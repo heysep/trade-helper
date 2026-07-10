@@ -77,11 +77,25 @@ export async function handleBatch(req: Request, deps?: { callFn?: typeof callOpe
   }
   const { market } = await req.json() as { market: "KRX" | "US" };
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
   if (!shouldRunToday(today)) {
     return new Response(JSON.stringify({ scanned: 0, evaluated: 0, skipped: 0, notified: 0, reason: "weekend" }), { status: 200 });
   }
 
+  // 게이트웨이 150초 타임아웃 회피: 즉시 202 응답, 실제 처리는 백그라운드 (결과는 DB로 확인)
+  const work = runBatch(market, today, deps);
+  // deno-lint-ignore no-explicit-any
+  const edge = (globalThis as any).EdgeRuntime;
+  if (edge?.waitUntil) {
+    edge.waitUntil(work.catch((e: unknown) => console.error(`batch failed: ${e}`)));
+    return new Response(JSON.stringify({ started: true, market }), { status: 202, headers: { "Content-Type": "application/json" } });
+  }
+  // 로컬/테스트 환경: 동기 실행
+  const summary = await work;
+  return new Response(JSON.stringify(summary), { status: 200, headers: { "Content-Type": "application/json" } });
+}
+
+async function runBatch(market: "KRX" | "US", today: Date, deps?: { callFn?: typeof callOpenAI }) {
+  const todayStr = today.toISOString().slice(0, 10);
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const call = deps?.callFn ?? callOpenAI;
   const cap = parseInt(Deno.env.get("DAILY_WEBSEARCH_CAP") ?? "200", 10);
@@ -94,7 +108,7 @@ export async function handleBatch(req: Request, deps?: { callFn?: typeof callOpe
     .select("id, user_id, buy_reason, break_conditions, holdings!inner(id, ticker, market, name)")
     .neq("status", "closed")
     .eq("holdings.market", market);
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+  if (error) throw new Error(error.message);
 
   // Stage 1: distinct 종목 스캔 (디둡)
   const rows = (theses ?? []) as unknown as ThesisRow[];
@@ -164,7 +178,9 @@ export async function handleBatch(req: Request, deps?: { callFn?: typeof callOpe
     }
   }
 
-  return new Response(JSON.stringify({ scanned, evaluated, skipped, notified, macroFetched }), { status: 200, headers: { "Content-Type": "application/json" } });
+  const summary = { scanned, evaluated, skipped, notified, macroFetched };
+  console.log(`batch done (${market}): ${JSON.stringify(summary)}`);
+  return summary;
 }
 
 if (import.meta.main) Deno.serve((req) => handleBatch(req));
