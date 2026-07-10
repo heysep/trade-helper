@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SessionProvider } from '@/lib/session';
 import { ToastProvider } from '@/components/Toast';
+import { DialogProvider } from '@/components/Dialog';
 import { registerPushToken } from '@/lib/push';
 import { colors } from '@/theme';
 
@@ -33,6 +34,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
         <ToastProvider>
+        <DialogProvider>
         <Stack screenOptions={{
           headerStyle: { backgroundColor: colors.canvasDark },
           headerTintColor: colors.onDark,
@@ -42,6 +44,7 @@ export default function RootLayout() {
         }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
+        </DialogProvider>
         </ToastProvider>
       </SessionProvider>
     </QueryClientProvider>

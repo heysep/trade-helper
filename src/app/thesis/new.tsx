@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ScrollView, Text, Alert } from 'react-native';
+import { ScrollView, Text } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useAddThesis } from '@/hooks/useTheses';
+import { useDialog } from '@/components/Dialog';
 import { TextField } from '@/components/TextField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { DISCLAIMER } from '@/constants/brand';
@@ -18,6 +19,7 @@ export default function NewThesisScreen() {
   const router = useRouter();
   const { holdingId } = useLocalSearchParams<{ holdingId: string }>();
   const add = useAddThesis();
+  const dialog = useDialog();
   const [buyReason, setBuyReason] = useState('');
   const [breakConditions, setBreakConditions] = useState('');
   const [addConditions, setAddConditions] = useState('');
@@ -25,11 +27,11 @@ export default function NewThesisScreen() {
 
   const submit = () => {
     const err = validateThesisInput({ buy_reason: buyReason, break_conditions: breakConditions, target_horizon: horizon });
-    if (err) { Alert.alert('입력 확인', err); return; }
+    if (err) { dialog.show({ title: '입력 확인', message: err }); return; }
     add.mutate(
       { holding_id: holdingId!, buy_reason: buyReason.trim(), break_conditions: breakConditions.trim(),
         add_conditions: addConditions.trim() || null, target_horizon: horizon.trim() },
-      { onSuccess: (t) => router.replace(`/thesis/${t.id}`), onError: (e) => Alert.alert('저장 실패', e.message) },
+      { onSuccess: (t) => router.replace(`/thesis/${t.id}`), onError: (e) => dialog.show({ title: '저장 실패', message: e.message }) },
     );
   };
 

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ScrollView, View, Text, Alert, Pressable, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, Pressable, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useAddHolding } from '@/hooks/useHoldings';
 import { useAddThesis } from '@/hooks/useTheses';
 import { useAddUserConditions } from '@/hooks/useCheckConditions';
 import { useSuggest, SuggestResult } from '@/hooks/useSuggest';
+import { useDialog } from '@/components/Dialog';
 import { tickerExists } from '@/lib/ticker';
 import { validateThesisInput } from '../thesis/new';
 import { TextField } from '@/components/TextField';
@@ -57,6 +58,7 @@ export default function NewHoldingScreen() {
   const addThesis = useAddThesis();
   const addConditions = useAddUserConditions();
   const suggest = useSuggest();
+  const dialog = useDialog();
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [ticker, setTicker] = useState('');
@@ -73,12 +75,12 @@ export default function NewHoldingScreen() {
 
   // Step 1 → 2: 티커 검증 + AI 추천 백그라운드 시작
   const goStep2 = async () => {
-    if (!name.trim() || !ticker.trim()) { Alert.alert('입력 확인', '종목명과 티커를 입력해 주세요.'); return; }
+    if (!name.trim() || !ticker.trim()) { dialog.show({ title: '입력 확인', message: '종목명과 티커를 입력해 주세요.' }); return; }
     setCheckingTicker(true);
     const exists = await tickerExists(ticker.trim(), market);
     setCheckingTicker(false);
     if (exists === false) {
-      Alert.alert('티커 확인 필요', `${market} 시장에서 "${ticker.trim().toUpperCase()}" 시세를 찾을 수 없습니다.`);
+      dialog.show({ title: '티커 확인 필요', message: `${market} 시장에서 "${ticker.trim().toUpperCase()}" 시세를 찾을 수 없습니다.` });
       return;
     }
     if (!suggestions && !suggest.isPending) {
@@ -88,7 +90,7 @@ export default function NewHoldingScreen() {
   };
 
   const goStep3 = () => {
-    if (!buyReason.trim()) { Alert.alert('입력 확인', '매수 이유를 입력하거나 AI 후보에서 골라주세요.'); return; }
+    if (!buyReason.trim()) { dialog.show({ title: '입력 확인', message: '매수 이유를 입력하거나 AI 후보에서 골라주세요.' }); return; }
     setStep(3);
   };
 
@@ -97,7 +99,7 @@ export default function NewHoldingScreen() {
 
   const submit = async () => {
     const err = validateThesisInput({ buy_reason: buyReason, break_conditions: breakConditions, target_horizon: horizon });
-    if (err) { Alert.alert('입력 확인', err); return; }
+    if (err) { dialog.show({ title: '입력 확인', message: err }); return; }
     try {
       const holding = await addHolding.mutateAsync({ name: name.trim(), ticker: ticker.trim(), market });
       const thesis = await addThesis.mutateAsync({
@@ -109,7 +111,7 @@ export default function NewHoldingScreen() {
       }
       router.replace(`/thesis/${thesis.id}`);
     } catch (e) {
-      Alert.alert('등록 실패', e instanceof Error ? e.message : String(e));
+      dialog.show({ title: '등록 실패', message: e instanceof Error ? e.message : String(e) });
     }
   };
 
@@ -155,7 +157,7 @@ export default function NewHoldingScreen() {
               ))}
             </View>
           ) : (
-            <Pressable onPress={() => suggest.mutate({ name: name.trim(), ticker: ticker.trim(), market }, { onSuccess: setSuggestions, onError: (e) => Alert.alert('추천 실패', e.message) })}>
+            <Pressable onPress={() => suggest.mutate({ name: name.trim(), ticker: ticker.trim(), market }, { onSuccess: setSuggestions, onError: (e) => dialog.show({ title: '추천 실패', message: e.message }) })}>
               <Text style={[type.bodySm, { color: colors.primary, marginBottom: space.sm }]}>추천 다시 불러오기</Text>
             </Pressable>
           )}

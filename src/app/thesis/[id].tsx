@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, Text, View, ActivityIndicator, Alert, Pressable } from 'react-native';
+import { ScrollView, Text, View, ActivityIndicator, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useThesis, useCloseThesis, useUpdateThesis, useDeleteThesis } from '@/hooks/useTheses';
 import { useHoldings } from '@/hooks/useHoldings';
@@ -14,6 +14,7 @@ import { SecondaryButton } from '@/components/SecondaryButton';
 import { StatusBadge } from '@/components/StatusBadge';
 import { NumberedText, toNumbered, fromNumbered, autoNumberOnEnter } from '@/components/NumberedText';
 import { useToast } from '@/components/Toast';
+import { useDialog } from '@/components/Dialog';
 import { DISCLAIMER } from '@/constants/brand';
 import { colors, type, space, radius } from '@/theme';
 
@@ -75,6 +76,7 @@ export default function ThesisDetailScreen() {
   const [revision, setRevision] = useState<ReviseResult | null>(null);
   const [nowResult, setNowResult] = useState<CheckNowResult | null>(null);
   const toast = useToast();
+  const dialog = useDialog();
   const [justVerified, setJustVerified] = useState(false);
   const [aiSeen, setAiSeen] = useState(false);
 
@@ -87,43 +89,43 @@ export default function ThesisDetailScreen() {
     setEditing(true);
   };
   const saveEdit = () => {
-    if (!eBuy.trim() || !eBreak.trim() || !eHorizon.trim()) { Alert.alert('입력 확인', '매수 이유·깨지는 조건·보유 기간은 비울 수 없어요.'); return; }
+    if (!eBuy.trim() || !eBreak.trim() || !eHorizon.trim()) { dialog.show({ title: '입력 확인', message: '매수 이유·깨지는 조건·보유 기간은 비울 수 없어요.' }); return; }
     updateThesis.mutate({
       thesisId: id!,
       fields: { buy_reason: fromNumbered(eBuy), break_conditions: fromNumbered(eBreak), add_conditions: fromNumbered(eAdd) || null, target_horizon: eHorizon.trim() },
     }, {
       onSuccess: () => {
         setEditing(false);
-        Alert.alert('저장 완료', '가설이 바뀌어서 기존 AI 검증 결과와 다를 수 있어요. 지금 다시 검증할까요?', [
+        dialog.show({ title: '저장 완료', message: '가설이 바뀌어서 기존 AI 검증 결과와 다를 수 있어요. 지금 다시 검증할까요?', buttons: [
           { text: '지금 검증', onPress: () => { setTab('ai'); verify.mutate(id!, {
             onSuccess: () => { toast.show('AI 재검증 완료'); setJustVerified(true); setAiSeen(false); setTimeout(() => setJustVerified(false), 4000); },
-            onError: (e) => Alert.alert('재검증 실패', e.message),
+            onError: (e) => dialog.show({ title: '재검증 실패', message: e.message }),
           }); } },
           { text: '나중에', style: 'cancel' },
-        ]);
+        ] });
       },
-      onError: (e) => Alert.alert('저장 실패', e.message),
+      onError: (e) => dialog.show({ title: '저장 실패', message: e.message }),
     });
   };
   const runCheckNow = () => {
     setNowResult(null);
     checkNow.mutate(id!, {
       onSuccess: (r) => { setNowResult(r); toast.show('점검 완료'); },
-      onError: (e) => Alert.alert('점검 실패', e.message),
+      onError: (e) => dialog.show({ title: '점검 실패', message: e.message }),
     });
   };
   const askRevision = () => {
     reviseThesis.mutate(id!, {
       onSuccess: (r) => setRevision(r),
-      onError: (e) => Alert.alert('수정안 실패', e.message),
+      onError: (e) => dialog.show({ title: '수정안 실패', message: e.message }),
     });
   };
   const applyRevision = () => {
     if (!revision) return;
-    Alert.alert('수정안 적용', '내 가설이 이 수정안으로 바뀝니다. 적용할까요?', [
+    dialog.show({ title: '수정안 적용', message: '내 가설이 이 수정안으로 바뀝니다. 적용할까요?', buttons: [
       { text: '적용', onPress: doApplyRevision },
       { text: '취소', style: 'cancel' },
-    ]);
+    ] });
   };
   const doApplyRevision = () => {
     if (!revision) return;
@@ -137,10 +139,10 @@ export default function ThesisDetailScreen() {
         setTab('ai');
         verify.mutate(id!, {
           onSuccess: () => { toast.show('AI 재검증 완료'); setJustVerified(true); setAiSeen(false); setTimeout(() => setJustVerified(false), 4000); },
-          onError: (e) => Alert.alert('재검증 실패', e.message + '\nAI 재검증 버튼으로 다시 시도해 주세요.'),
+          onError: (e) => dialog.show({ title: '재검증 실패', message: e.message + '\nAI 재검증 버튼으로 다시 시도해 주세요.' }),
         });
       },
-      onError: (e) => Alert.alert('적용 실패', e.message),
+      onError: (e) => dialog.show({ title: '적용 실패', message: e.message }),
     });
   };
 
@@ -157,33 +159,33 @@ export default function ThesisDetailScreen() {
   const startRecheck = () => {
     preview.mutate(id!, {
       onSuccess: (r) => setPendingResult(r),
-      onError: (e) => Alert.alert('AI 검증 실패', e.message),
+      onError: (e) => dialog.show({ title: 'AI 검증 실패', message: e.message }),
     });
   };
   const confirmOverwrite = () => {
     if (!pendingResult) return;
     applyVerify.mutate({ thesisId: id!, result: pendingResult }, {
       onSuccess: () => { setPendingResult(null); toast.show('새 검증 결과로 저장됨'); },
-      onError: (e) => Alert.alert('저장 실패', e.message),
+      onError: (e) => dialog.show({ title: '저장 실패', message: e.message }),
     });
   };
   const confirmDelete = () => {
-    Alert.alert('가설 삭제', '이 가설과 감시 항목·점검 기록이 모두 삭제됩니다. 복구할 수 없어요.', [
+    dialog.show({ title: '가설 삭제', message: '이 가설과 감시 항목·점검 기록이 모두 삭제됩니다. 복구할 수 없어요.', buttons: [
       { text: '삭제', style: 'destructive', onPress: () => {
         deleteThesis.mutate({ thesisId: id!, holdingId: thesis!.holding_id }, {
           onSuccess: () => router.back(),
-          onError: (e) => Alert.alert('삭제 실패', e.message),
+          onError: (e) => dialog.show({ title: '삭제 실패', message: e.message }),
         });
       } },
       { text: '취소', style: 'cancel' },
-    ]);
+    ] });
   };
   const confirmClose = () => {
-    Alert.alert('가설 종료', '이 가설의 결과를 기록합니다. 종료 후 히스토리에서 복기할 수 있어요.', [
+    dialog.show({ title: '가설 종료', message: '이 가설의 결과를 기록합니다. 종료 후 히스토리에서 복기할 수 있어요.', buttons: [
       { text: '성공으로 기록', onPress: () => close.mutate({ thesisId: id!, outcome: 'success' }) },
       { text: '실패로 기록', style: 'destructive', onPress: () => close.mutate({ thesisId: id!, outcome: 'fail' }) },
       { text: '취소', style: 'cancel' },
-    ]);
+    ] });
   };
 
   if (isLoading || !thesis) return <ActivityIndicator style={{ marginTop: space.xl }} color={colors.primary} />;
@@ -336,7 +338,7 @@ export default function ThesisDetailScreen() {
             </Text>
           </Card>
         ) : (
-          <PrimaryButton title="AI 검증 시작" onPress={() => verify.mutate(id!, { onError: (e) => Alert.alert('AI 검증 실패', e.message) })} />
+          <PrimaryButton title="AI 검증 시작" onPress={() => verify.mutate(id!, { onError: (e) => dialog.show({ title: 'AI 검증 실패', message: e.message }) })} />
         )
       ) : null}
 
