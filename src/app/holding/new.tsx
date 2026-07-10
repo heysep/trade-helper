@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, View, Text, Alert, Pressable } from 'react-native';
+import { ScrollView, View, Text, Alert, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useAddHolding } from '@/hooks/useHoldings';
 import { useAddThesis } from '@/hooks/useTheses';
@@ -46,12 +46,13 @@ export default function NewHoldingScreen() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.canvasLight }} contentContainerStyle={{ padding: space.md, paddingBottom: space.xxl }}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={88}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.canvasLight }} contentContainerStyle={{ padding: space.md, paddingBottom: space.xxl }} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: '종목 + 가설 등록', headerStyle: { backgroundColor: colors.canvasLight }, headerTintColor: colors.ink, contentStyle: { backgroundColor: colors.canvasLight } }} />
 
       <Text style={[type.titleSm, { color: colors.ink, marginBottom: space.sm }]}>종목</Text>
       <TextField label="종목명" value={name} onChangeText={setName} placeholder="엔비디아" />
-      <TextField label="티커" value={ticker} onChangeText={setTicker} placeholder="NVDA 또는 005930" />
+      <TextField label="티커" value={ticker} onChangeText={setTicker} placeholder="NVDA 또는 005930" autoCapitalize="characters" />
       <Text style={[type.caption, { color: colors.muted, marginBottom: space.xxs }]}>시장</Text>
       <View style={{ flexDirection: 'row', gap: space.xs, marginBottom: space.lg }}>
         {(['US', 'KRX'] as const).map((m) => (
@@ -76,5 +77,6 @@ export default function NewHoldingScreen() {
       <PrimaryButton title={pending ? '등록 중…' : '종목 + 가설 등록'} onPress={submit} disabled={pending} />
       <Text style={[type.bodySm, { color: colors.muted, marginTop: space.lg }]}>{DISCLAIMER}</Text>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

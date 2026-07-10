@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { ScrollView, Text, View, ActivityIndicator, Alert, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useThesis, useCloseThesis } from '@/hooks/useTheses';
@@ -35,6 +36,15 @@ export default function ThesisDetailScreen() {
   const { data: holdings } = useHoldings();
   const verify = useVerifyThesis();
   const close = useCloseThesis();
+  const autoStarted = useRef(false);
+
+  // 등록 직후 진입하면 자동으로 AI 점검 시작 (버튼 한 번 더 누를 필요 없게)
+  useEffect(() => {
+    if (thesis && !thesis.soundness_review && thesis.status !== 'closed' && !autoStarted.current && !verify.isPending) {
+      autoStarted.current = true;
+      verify.mutate(id!, { onError: () => { /* 실패 시 수동 버튼 노출됨 */ } });
+    }
+  }, [thesis, id, verify]);
 
   const confirmClose = () => {
     Alert.alert('가설 종료', '이 가설의 결과를 기록합니다. 종료 후 히스토리에서 복기할 수 있어요.', [
@@ -108,11 +118,18 @@ export default function ThesisDetailScreen() {
             </Text>
           </Pressable>
         </Card>
+      ) : verify.isPending ? (
+        <Card style={{ marginBottom: space.lg, alignItems: 'center', paddingVertical: space.xl }}>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={[type.titleSm, { color: colors.onDark, marginTop: space.md }]}>AI가 가설을 점검하고 있어요</Text>
+          <Text style={[type.bodySm, { color: colors.muted, marginTop: space.xxs, textAlign: 'center' }]}>
+            웹에서 최신 자료를 찾는 중입니다{'\n'}30초~1분 30초 정도 걸려요. 기다리는 동안 나가도 괜찮아요.
+          </Text>
+        </Card>
       ) : (
         <PrimaryButton
-          title={verify.isPending ? '검증 중… (수십 초 걸릴 수 있어요)' : 'AI 가설 검증'}
-          disabled={verify.isPending}
-          onPress={() => verify.mutate(id!, { onError: (e) => Alert.alert('검증 실패', e.message) })}
+          title="AI 가설 점검 시작"
+          onPress={() => verify.mutate(id!, { onError: (e) => Alert.alert('점검 실패', e.message) })}
         />
       )}
       {thesis.status !== 'closed' ? (

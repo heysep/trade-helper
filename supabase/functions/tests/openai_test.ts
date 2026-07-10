@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert";
-import { callOpenAI, parseJsonBlock } from "../_shared/openai.ts";
+import { callOpenAI, parseJsonBlock, stripLinks } from "../_shared/openai.ts";
 
 Deno.test("callOpenAI posts to responses API and returns output_text", async () => {
   let captured: { url: string; body: Record<string, unknown> } | null = null;
@@ -25,4 +25,10 @@ Deno.test("callOpenAI throws on non-200", async () => {
 Deno.test("parseJsonBlock handles fenced and plain JSON", () => {
   assertEquals(parseJsonBlock<{ a: number }>('```json\n{"a":1}\n```').a, 1);
   assertEquals(parseJsonBlock<{ a: number }>('전문: {"a":2} 끝').a, 2);
+});
+
+Deno.test("stripLinks removes citations, markdown links, bare urls", () => {
+  assertEquals(stripLinks("HBM은 타이트하다. ([trendforce.com](https://x.com/a?utm=1))"), "HBM은 타이트하다.");
+  assertEquals(stripLinks("자세한 건 [여기](https://a.b) 참고"), "자세한 건 여기 참고");
+  assertEquals(stripLinks("출처: https://ex.com/path 끝"), "출처: 끝");
 });

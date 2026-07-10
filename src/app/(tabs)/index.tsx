@@ -1,18 +1,19 @@
-import { FlatList, Text, View } from 'react-native';
+import { FlatList, RefreshControl, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useHoldings } from '@/hooks/useHoldings';
 import { useTheses } from '@/hooks/useTheses';
 import { HoldingCard } from '@/components/HoldingCard';
 import { PrimaryButton } from '@/components/PrimaryButton';
-import { colors, type, space } from '@/theme';
+import { EmptyState } from '@/components/EmptyState';
+import { colors, space } from '@/theme';
 import type { Opinion } from '@/components/StatusBadge';
 
 const STATUS_TO_OPINION: Record<string, Opinion> = { active: 'hold', watching: 'watch', reduce: 'reduce', exit: 'exit' };
 
 export default function HoldingsScreen() {
   const router = useRouter();
-  const { data: holdings, isLoading } = useHoldings();
-  const { data: theses } = useTheses();
+  const { data: holdings, isLoading, refetch, isRefetching } = useHoldings();
+  const { data: theses, refetch: refetchTheses } = useTheses();
 
   const activeThesis = (holdingId: string) =>
     (theses ?? []).find((t) => t.holding_id === holdingId && t.status !== 'closed');
@@ -22,6 +23,10 @@ export default function HoldingsScreen() {
       <FlatList
         data={holdings ?? []}
         keyExtractor={(h) => h.id}
+        contentContainerStyle={{ paddingBottom: space.xxl }}
+        refreshControl={
+          <RefreshControl refreshing={isRefetching} onRefresh={() => { refetch(); refetchTheses(); }} tintColor={colors.primary} />
+        }
         renderItem={({ item }) => {
           const active = activeThesis(item.id);
           return (
@@ -35,12 +40,10 @@ export default function HoldingsScreen() {
           );
         }}
         ListEmptyComponent={!isLoading ? (
-          <Text style={[type.bodyMd, { color: colors.muted, textAlign: 'center', marginTop: space.xl }]}>
-            종목을 등록하고 매수 가설을 기록해 보세요.
-          </Text>
+          <EmptyState message={'아직 등록한 종목이 없어요.\n"왜 샀는지"를 기록하면 AI가 매일 대신 점검해 드려요.'} />
         ) : null}
       />
-      <PrimaryButton title="종목 추가" onPress={() => router.push('/holding/new')} />
+      <PrimaryButton title="종목 + 가설 등록" onPress={() => router.push('/holding/new')} />
     </View>
   );
 }

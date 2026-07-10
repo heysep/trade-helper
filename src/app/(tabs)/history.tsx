@@ -1,10 +1,11 @@
-import { ScrollView, Text, View, Pressable } from 'react-native';
+import { RefreshControl, ScrollView, Text, View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useStats } from '@/hooks/useStats';
 import { useTheses } from '@/hooks/useTheses';
 import { useHoldings } from '@/hooks/useHoldings';
 import { StatCallout } from '@/components/StatCallout';
 import { Card } from '@/components/Card';
+import { EmptyState } from '@/components/EmptyState';
 import { colors, type, space, radius } from '@/theme';
 import type { Thesis } from '@/types/db';
 
@@ -22,15 +23,19 @@ function period(t: Thesis): string {
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const { data: stats } = useStats();
-  const { data: theses } = useTheses();
+  const { data: stats, refetch, isRefetching } = useStats();
+  const { data: theses, refetch: refetchTheses } = useTheses();
   const { data: holdings } = useHoldings();
   if (!stats) return null;
 
   const holdingName = (id: string) => (holdings ?? []).find((h) => h.id === id);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.canvasDark }} contentContainerStyle={{ padding: space.md }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: colors.canvasDark }}
+      contentContainerStyle={{ padding: space.md, paddingBottom: space.xxl }}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { refetch(); refetchTheses(); }} tintColor={colors.primary} />}
+    >
       <Text style={[type.displaySm, { color: colors.onDark, marginBottom: space.lg }]}>내 투자 가설 통계</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
         <StatCallout label="전체 가설" value={String(stats.total)} />
@@ -66,9 +71,11 @@ export default function HistoryScreen() {
         );
       })}
       {(theses ?? []).length === 0 ? (
-        <Text style={[type.bodyMd, { color: colors.muted, textAlign: 'center', marginTop: space.xl }]}>
-          아직 가설이 없습니다. 종목을 등록하고 첫 가설을 기록해 보세요.
-        </Text>
+        <EmptyState
+          message={'아직 기록한 가설이 없어요.\n가설을 쌓으면 성공/실패 패턴을 복기할 수 있어요.'}
+          ctaLabel="첫 가설 기록하기"
+          ctaHref="/holding/new"
+        />
       ) : null}
     </ScrollView>
   );

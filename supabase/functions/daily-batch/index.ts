@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { callOpenAI, parseJsonBlock } from "../_shared/openai.ts";
+import { callOpenAI, parseJsonBlock, stripLinks } from "../_shared/openai.ts";
 
 export function shouldRunToday(d: Date): boolean {
   const day = d.getUTCDay();
@@ -88,7 +88,7 @@ export async function handleBatch(req: Request, deps?: { callFn?: typeof callOpe
         const raw = await call({ model: scanModel, input: buildScanPrompt({ ticker, market, name: group.name, today: todayStr }), webSearch: true, maxOutputTokens: 5000, reasoningEffort: 'low' });
         const parsed = parseJsonBlock<ScanJson>(raw);
         const { data: inserted } = await db.from("daily_scans")
-          .insert({ ticker, market, scan_date: todayStr, summary: parsed.summary, change_level: parsed.change_level, sources: parsed.sources })
+          .insert({ ticker, market, scan_date: todayStr, summary: stripLinks(parsed.summary), change_level: parsed.change_level, sources: parsed.sources })
           .select().single();
         scan = inserted; scanned++; webCalls++;
         await db.from("usage_daily").update({ web_search_calls: webCalls }).eq("usage_date", todayStr);
@@ -105,7 +105,7 @@ export async function handleBatch(req: Request, deps?: { callFn?: typeof callOpe
         if (decideEval(scan) === "eval") {
           const raw = await call({ model: evalModel, input: buildEvalPrompt({ buy_reason: t.buy_reason, break_conditions: t.break_conditions, summary: scan.summary, today: todayStr }), maxOutputTokens: 2000, reasoningEffort: 'low' });
           const ev = parseJsonBlock<EvalJson>(raw);
-          opinion = ev.opinion; rationale = ev.rationale; evaluated++; evalCalls++;
+          opinion = ev.opinion; rationale = stripLinks(ev.rationale); evaluated++; evalCalls++;
           await db.from("usage_daily").update({ eval_calls: evalCalls }).eq("usage_date", todayStr);
         } else { skipped++; }
 

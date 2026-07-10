@@ -36,6 +36,19 @@ export async function callOpenAI(opts: CallOpts): Promise<string> {
   return text;
 }
 
+/**
+ * web_search가 자동 주입하는 인용/링크 제거 (프롬프트 지시만으론 못 막음).
+ * "([trendforce.com](https://...))" 패턴, 마크다운 링크, 맨몸 URL 순으로 제거.
+ */
+export function stripLinks(s: string): string {
+  return s
+    .replace(/\s*\(\[[^\]]*\]\([^)]*\)\)/g, "")     // ([site.com](url)) 통째 제거
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")          // [text](url) → text
+    .replace(/\s*\(?https?:\/\/[^\s)]+\)?/g, "")      // 맨몸 URL
+    .replace(/ {2,}/g, " ")
+    .trim();
+}
+
 export function parseJsonBlock<T>(raw: string): T {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   const candidate = fenced ? fenced[1] : raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);

@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { callOpenAI, parseJsonBlock } from "../_shared/openai.ts";
+import { callOpenAI, parseJsonBlock, stripLinks } from "../_shared/openai.ts";
 
 interface VerifyResult {
   reason_reviews: Array<{ reason: string; verdict: "타당" | "부분 타당" | "약함"; comment: string }>;
@@ -54,7 +54,8 @@ export async function handleVerify(req: Request, deps?: { callFn?: typeof callOp
 
     const call = deps?.callFn ?? callOpenAI;
     const raw = await call({
-      model: Deno.env.get("OPENAI_MODEL_SCAN") ?? "gpt-5",
+      // 재검증을 부담 없이 여러 번 돌릴 수 있게 기본은 저가 모델 (env로 상향 가능)
+      model: Deno.env.get("OPENAI_MODEL_VERIFY") ?? "gpt-5-mini",
       input: buildVerifyPrompt({
         name: thesis.holdings.name, ticker: thesis.holdings.ticker, market: thesis.holdings.market,
         buy_reason: thesis.buy_reason, break_conditions: thesis.break_conditions,
@@ -63,7 +64,14 @@ export async function handleVerify(req: Request, deps?: { callFn?: typeof callOp
       // verify는 종목·가설당 1회성 — 품질 우선 (medium + 넉넉한 토큰)
       webSearch: true, maxOutputTokens: 10000, reasoningEffort: 'medium',
     });
-    const result = parseJsonBlock<VerifyResult>(raw);
+    const parsed = parseJsonBlock<VerifyResult>(raw);
+    // web_search 자동 인용 제거
+    const result: VerifyResult = {
+      reason_reviews: (parsed.reason_reviews ?? []).map((r) => ({ ...r, reason: stripLinks(r.reason), comment: stripLinks(r.comment) })),
+      missing_points: (parsed.missing_points ?? []).map(stripLinks),
+      counterpoints: (parsed.counterpoints ?? []).map(stripLinks),
+      check_conditions: (parsed.check_conditions ?? []).map((c) => ({ ...c, label: stripLinks(c.label) })),
+    };
 
     await supabase.from("theses").update({
       soundness_review: {
