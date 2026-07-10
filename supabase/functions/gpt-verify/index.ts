@@ -4,6 +4,7 @@ import { callOpenAI, parseJsonBlock, stripLinks } from "../_shared/openai.ts";
 interface VerifyResult {
   score: number;
   summary: string;
+  add_candidates: string[];
   reason_reviews: Array<{ reason: string; verdict: "타당" | "부분 타당" | "약함"; comment: string }>;
   missing_points: string[];
   counterpoints: string[];
@@ -20,7 +21,7 @@ export function buildVerifyPrompt(p: { name: string; ticker: string; market: str
 
 먼저 사용자의 매수 이유를 개별 논점으로 나눠라 (번호·줄바꿈·문장 단위).
 그 다음 웹검색으로 종목의 실제 상황과 다가오는 이벤트(실적발표일 등)를 확인하고, 다음 JSON만 출력:
-{"score":0,"summary":"한 줄 총평 (40자 이내)","reason_reviews":[{"reason":"논점 요약 (20자 이내)","verdict":"타당|부분 타당|약함","comment":"왜 그런지 쉬운 말 1-2문장"}],"missing_points":["사용자가 놓친 관점 1-3개, 각 한 문장"],"counterpoints":["가설이 깨질 수 있는 시나리오 2-4개, 각 한 문장"],"check_conditions":[{"label":"확인 항목 (25자 이내)","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}
+{"score":0,"summary":"한 줄 총평 (40자 이내)","reason_reviews":[{"reason":"논점 요약 (20자 이내)","verdict":"타당|부분 타당|약함","comment":"왜 그런지 쉬운 말 1-2문장"}],"missing_points":["사용자가 놓친 관점 1-3개, 각 한 문장"],"counterpoints":["가설이 깨질 수 있는 시나리오 2-4개, 각 한 문장"],"add_candidates":["추가매수를 고려할 만한 조건 후보 2-3개, 각 한 문장"],"check_conditions":[{"label":"확인 항목 (25자 이내)","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}
 
 score 채점 기준 (0~100 정수):
 - 사실 부합성 40점: 논거가 실제 데이터·뉴스와 맞는가
@@ -52,6 +53,7 @@ function sanitizeResult(parsed: VerifyResult): VerifyResult {
     reason_reviews: (parsed.reason_reviews ?? []).map((r) => ({ ...r, reason: stripLinks(r.reason), comment: stripLinks(r.comment) })),
     missing_points: (parsed.missing_points ?? []).map(stripLinks),
     counterpoints: (parsed.counterpoints ?? []).map(stripLinks),
+    add_candidates: (parsed.add_candidates ?? []).map(stripLinks),
     check_conditions: (parsed.check_conditions ?? []).map((c) => ({ ...c, label: stripLinks(c.label) })),
   };
 }
@@ -65,13 +67,14 @@ async function persistResult(supabase: any, thesis_id: string, result: VerifyRes
       reason_reviews: result.reason_reviews,
       missing_points: result.missing_points,
       counterpoints: result.counterpoints,
+      add_candidates: result.add_candidates,
     },
   }).eq("id", thesis_id);
-  // 재검증 시 일정 중복 방지 — 기존 open 조건 삭제 후 재생성
-  await supabase.from("check_conditions").delete().eq("thesis_id", thesis_id).eq("status", "open");
+  // 재검증 시 AI 생성 조건만 갈아끼움 — 사용자가 직접 고른 감시 항목(source=user)은 보존
+  await supabase.from("check_conditions").delete().eq("thesis_id", thesis_id).eq("status", "open").eq("source", "ai");
   if (result.check_conditions.length) {
     await supabase.from("check_conditions").insert(
-      result.check_conditions.map((c) => ({ thesis_id, label: c.label, event_type: c.event_type, next_check_date: c.next_check_date })),
+      result.check_conditions.map((c) => ({ thesis_id, label: c.label, event_type: c.event_type, next_check_date: c.next_check_date, source: "ai" })),
     );
   }
 }

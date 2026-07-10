@@ -17,6 +17,7 @@ export interface SoundnessReview {
   reason_reviews?: ReasonReview[];  // 매수 이유별 개별 판정
   missing_points?: string[];        // 놓친 관점
   counterpoints: string[];
+  add_candidates?: string[];      // 추가매수 조건 후보 (채택용)
 }
 export interface Thesis {
   id: string; holding_id: string; user_id: string;
@@ -29,6 +30,8 @@ export interface CheckCondition {
   id: string; thesis_id: string; label: string;
   event_type: 'earnings' | 'guidance' | 'metric' | 'custom';
   next_check_date: string | null; status: 'open' | 'done';
+  condition_state: 'ok' | 'warning' | 'broken';
+  source: 'user' | 'ai';
 }
 export interface DailyScan {
   id: string; ticker: string; market: 'KRX' | 'US'; scan_date: string;

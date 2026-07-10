@@ -17,15 +17,16 @@ export function buildScanPrompt(p: { ticker: string; market: string; name: strin
 작성 규칙: summary에는 URL·마크다운 링크 금지 (링크는 sources 배열에만). 문장 짧게.`;
 }
 
-export function buildEvalPrompt(p: { buy_reason: string; break_conditions: string; summary: string; today: string }): string {
+export function buildEvalPrompt(p: { buy_reason: string; break_conditions: string; summary: string; today: string; watch_labels?: string[] }): string {
+  const watch = (p.watch_labels ?? []).length ? `\n감시 항목: ${p.watch_labels!.join(" / ")}` : "";
   return `당신은 투자 가설 점검 보조 도구다. 자문·추천 금지. "매수/매도하세요" 표현 금지. 가설 대비 변화만 서술.
 오늘: ${p.today}
 사용자 가설: ${p.buy_reason}
-깨지는 조건: ${p.break_conditions}
+깨지는 조건: ${p.break_conditions}${watch}
 오늘 스캔 요약: ${p.summary}
 
 스캔 내용이 가설/깨지는 조건에 미치는 영향을 판단해 다음 JSON만 출력:
-{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)"}
+{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)","broken_labels":["오늘 스캔 기준으로 깨졌거나 위험해진 감시 항목의 라벨 (없으면 빈 배열, 감시 항목 목록에 있는 것만)"]}
 
 작성 규칙: rationale에 URL·마크다운 링크 금지. 문장마다 \\n 줄바꿈, 짧게.`;
 }
@@ -108,7 +109,7 @@ async function ensureMacroEvents(db: any, call: typeof callOpenAI, _model: strin
 }
 
 interface ScanJson { summary: string; change_level: "none" | "minor" | "major"; sources: string[] }
-interface EvalJson { opinion: "hold" | "watch" | "reduce" | "exit"; rationale: string }
+interface EvalJson { opinion: "hold" | "watch" | "reduce" | "exit"; rationale: string; broken_labels?: string[] }
 
 interface ThesisRow {
   id: string; user_id: string; buy_reason: string; break_conditions: string;
@@ -199,9 +200,18 @@ async function runBatch(market: "KRX" | "US", today: Date, deps?: { callFn?: typ
         let opinion: EvalJson["opinion"] = "hold";
         let rationale = "오늘은 가설을 변경할 만한 새로운 정보가 없습니다.";
         if (decideEval(scan) === "eval") {
-          const raw = await call({ model: evalModel, input: buildEvalPrompt({ buy_reason: t.buy_reason, break_conditions: t.break_conditions, summary: scan.summary, today: todayStr }), maxOutputTokens: 2000, reasoningEffort: 'low' });
+          const { data: conds } = await db.from("check_conditions").select("id, label").eq("thesis_id", t.id).eq("status", "open");
+          const watchLabels = (conds ?? []).map((c: { label: string }) => c.label);
+          const raw = await call({ model: evalModel, input: buildEvalPrompt({ buy_reason: t.buy_reason, break_conditions: t.break_conditions, summary: scan.summary, today: todayStr, watch_labels: watchLabels }), maxOutputTokens: 2000, reasoningEffort: 'low' });
           const ev = parseJsonBlock<EvalJson>(raw);
           opinion = ev.opinion; rationale = stripLinks(ev.rationale); evaluated++; evalCalls++;
+          // 감시 항목 깨짐 상태 반영
+          const broken = new Set((ev.broken_labels ?? []).map((l) => l.trim()));
+          for (const c of (conds ?? []) as Array<{ id: string; label: string }>) {
+            if (broken.has(c.label.trim())) {
+              await db.from("check_conditions").update({ condition_state: "broken" }).eq("id", c.id);
+            }
+          }
           await db.from("usage_daily").update({ eval_calls: evalCalls }).eq("usage_date", todayStr);
         } else { skipped++; }
 
