@@ -30,28 +30,45 @@ export function buildEvalPrompt(p: { buy_reason: string; break_conditions: strin
 작성 규칙: rationale에 URL·마크다운 링크 금지. 문장마다 \\n 줄바꿈, 짧게.`;
 }
 
-export function buildMacroPrompt(today: string): string {
-  return `당신은 매크로 경제 일정 수집기다. 오늘(${today})부터 14일 이내에 예정된, 주식시장 전체에 영향이 큰 일정만 웹검색으로 확인하라.
-포함: 미국 CPI/고용/FOMC, 중국 GDP/PMI, 한국 금통위/수출, 주요국 금리 결정, 대형 이벤트.
-제외: 개별 기업 실적.
-다음 JSON만 출력 (URL·링크 금지, label 25자 이내):
-{"events":[{"event_date":"YYYY-MM-DD","label":"일정 이름","region":"US|CN|KR|EU|JP|global","importance":"high|normal"}]}`;
+interface FeedEvent { title: string; country: string; date: string; impact: string }
+
+// 무료 경제 캘린더 피드(ForexFactory) — 날짜는 API가 정확, GPT는 선별·한글화만
+export async function fetchCalendarFeed(fetchFn: typeof fetch = fetch): Promise<FeedEvent[]> {
+  const urls = [
+    "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
+    "https://nfs.faireconomy.media/ff_calendar_nextweek.json",
+  ];
+  const all: FeedEvent[] = [];
+  for (const u of urls) {
+    try {
+      const res = await fetchFn(u);
+      if (res.ok) all.push(...(await res.json()) as FeedEvent[]);
+    } catch (e) { console.error(`feed ${u} failed: ${e}`); }
+  }
+  return all.filter((e) => e.impact === "High" || e.impact === "Medium");
+}
+
+export function buildCuratePrompt(events: Array<{ title: string; country: string; date: string; impact: string }>): string {
+  const lines = events.map((e) => `${e.date.slice(0, 10)}|${e.country}|${e.impact}|${e.title}`).join("\n");
+  return `아래는 경제 일정 목록이다 (날짜|통화|중요도|이벤트). 이 목록 안에서만 골라라. 새 일정을 지어내지 마라.
+주식 투자자에게 중요한 것 최대 12개를 선택해 한국어로 번역하고, 다음 JSON만 출력:
+{"events":[{"event_date":"YYYY-MM-DD","label":"한국어 일정명 (25자 이내)","region":"US|CN|KR|EU|JP|global","importance":"high|normal"}]}
+선택 기준: 금리결정·CPI·고용·GDP·PMI 우선. 같은 날 중복 지표는 대표 1개만. impact High는 importance high로.
+통화→region: USD→US, CNY→CN, EUR→EU, JPY→JP, 나머지→global.
+
+${lines}`;
+}
+
+export function buildKoreaMacroPrompt(today: string): string {
+  return `오늘(${today})부터 14일 이내 예정된 한국 매크로 일정만 웹검색으로 확인하라 (금통위 금리결정, 수출입 통계, 산업활동동향 등. 개별 기업 실적 제외).
+다음 JSON만 출력 (URL 금지, label 25자 이내, 없으면 빈 배열):
+{"events":[{"event_date":"YYYY-MM-DD","label":"일정 이름","region":"KR","importance":"high|normal"}]}`;
 }
 
 interface MacroJson { events: Array<{ event_date: string; label: string; region: string; importance: string }> }
 
-// 매크로 일정이 오래됐거나 부족하면 주 1회 수준으로 갱신 (전 유저 공유 — 웹검색 1콜)
-// deno-lint-ignore no-explicit-any
-async function ensureMacroEvents(db: any, call: typeof callOpenAI, model: string, todayStr: string): Promise<number> {
-  const { count } = await db.from("market_events")
-    .select("id", { count: "exact", head: true })
-    .gte("event_date", todayStr)
-    .gte("fetched_at", new Date(Date.now() - 7 * 864e5).toISOString());
-  if ((count ?? 0) >= 3) return 0; // 최근 7일 내 수집분이 충분 → 스킵
-
-  const raw = await call({ model, input: buildMacroPrompt(todayStr), webSearch: true, maxOutputTokens: 5000, reasoningEffort: "low" });
-  const parsed = parseJsonBlock<MacroJson>(raw);
-  const rows = (parsed.events ?? [])
+function normalizeEvents(parsed: MacroJson, todayStr: string) {
+  return (parsed.events ?? [])
     .filter((e) => /^\d{4}-\d{2}-\d{2}$/.test(e.event_date) && e.event_date >= todayStr)
     .map((e) => ({
       event_date: e.event_date,
@@ -59,6 +76,33 @@ async function ensureMacroEvents(db: any, call: typeof callOpenAI, model: string
       region: ["US", "CN", "KR", "EU", "JP"].includes(e.region) ? e.region : "global",
       importance: e.importance === "high" ? "high" : "normal",
     }));
+}
+
+// 주 1회 수준 갱신 (전 유저 공유). 글로벌=피드+GPT선별(웹검색X), 한국=웹검색 1콜 보강.
+// deno-lint-ignore no-explicit-any
+async function ensureMacroEvents(db: any, call: typeof callOpenAI, _model: string, todayStr: string): Promise<number> {
+  const { count } = await db.from("market_events")
+    .select("id", { count: "exact", head: true })
+    .gte("event_date", todayStr)
+    .gte("fetched_at", new Date(Date.now() - 7 * 864e5).toISOString());
+  if ((count ?? 0) >= 3) return 0; // 최근 7일 내 수집분이 충분 → 스킵
+
+  const evalModel = Deno.env.get("OPENAI_MODEL_EVAL") ?? "gpt-5-mini";
+  let rows: ReturnType<typeof normalizeEvents> = [];
+
+  // 1) 글로벌: 피드 기반 선별 (정확한 날짜, GPT는 번역·선별만)
+  const feed = await fetchCalendarFeed();
+  if (feed.length) {
+    const raw = await call({ model: evalModel, input: buildCuratePrompt(feed), maxOutputTokens: 3000, reasoningEffort: "low" });
+    rows = rows.concat(normalizeEvents(parseJsonBlock<MacroJson>(raw), todayStr));
+  }
+
+  // 2) 한국: 피드 미포함 → 웹검색 보강
+  try {
+    const rawKr = await call({ model: evalModel, input: buildKoreaMacroPrompt(todayStr), webSearch: true, maxOutputTokens: 2500, reasoningEffort: "low" });
+    rows = rows.concat(normalizeEvents(parseJsonBlock<MacroJson>(rawKr), todayStr));
+  } catch (e) { console.error(`korea macro fetch failed: ${e}`); }
+
   if (rows.length) await db.from("market_events").upsert(rows, { onConflict: "event_date,label" });
   return rows.length;
 }

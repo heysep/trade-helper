@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { shouldRunToday, decideEval, buildScanPrompt, buildEvalPrompt } from "../daily-batch/index.ts";
+import { shouldRunToday, decideEval, buildScanPrompt, buildEvalPrompt, buildCuratePrompt, buildKoreaMacroPrompt } from "../daily-batch/index.ts";
 
 Deno.test("skips weekends", () => {
   assertEquals(shouldRunToday(new Date("2026-07-11T00:00:00Z")), false); // Sat
@@ -22,4 +22,16 @@ Deno.test("prompts carry contract", () => {
   });
   assertEquals(ev.includes("hold|watch|reduce|exit"), true);
   assertEquals(ev.includes("가이던스 하향 발표"), true);
+});
+
+Deno.test("curate prompt embeds feed rows and only-select rule", () => {
+  const p = buildCuratePrompt([{ title: "CPI m/m", country: "USD", date: "2026-07-14T08:30:00-04:00", impact: "High" }]);
+  assertEquals(p.includes("2026-07-14|USD|High|CPI m/m"), true);
+  assertEquals(p.includes("지어내지 마라"), true);
+});
+
+Deno.test("korea macro prompt scoped to KR", () => {
+  const p = buildKoreaMacroPrompt("2026-07-10");
+  assertEquals(p.includes("한국"), true);
+  assertEquals(p.includes('"region":"KR"'), true);
 });
