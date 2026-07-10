@@ -353,7 +353,11 @@ export default function ThesisDetailScreen() {
               const todayStr = new Date().toISOString().slice(0, 10);
               // 실적·가이던스 = 일정 기반 / 지표·조건 = 가설(내 관점) 기반
               const isEvent = (c: NonNullable<typeof conditions>[number]) => c.event_type === 'earnings' || c.event_type === 'guidance';
-              const scheduled = all.filter((c) => isEvent(c) && !!c.next_check_date).sort((a, b) => a.next_check_date!.localeCompare(b.next_check_date!));
+              const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+              // 다가오는 일정 + 지난 7일 내 일정(검증 결과 확인용)
+              const scheduled = all
+                .filter((c) => isEvent(c) && !!c.next_check_date && c.next_check_date >= weekAgo)
+                .sort((a, b) => a.next_check_date!.localeCompare(b.next_check_date!));
               const thesisBased = all.filter((c) => !isEvent(c) || !c.next_check_date);
               const groups = new Map<string, typeof thesisBased>();
               for (const c of thesisBased) {
@@ -372,8 +376,12 @@ export default function ThesisDetailScreen() {
                           const past = c.next_check_date! < todayStr;
                           const future = c.next_check_date! > todayStr;
                           // 미래 일정은 아직 점검 전 — 정상/비정상 대신 '예정'
-                          const statusLabel = future ? '예정' : c.next_check_date! === todayStr ? '오늘' : meta.label;
-                          const statusColor = future ? colors.muted : c.next_check_date! === todayStr ? colors.primary : meta.color;
+                          const statusLabel = future ? '예정'
+                            : c.next_check_date! === todayStr ? '오늘'
+                            : c.state_note ? meta.label : '미확인';
+                          const statusColor = future ? colors.muted
+                            : c.next_check_date! === todayStr ? colors.primary
+                            : c.state_note ? meta.color : colors.muted;
                           return (
                             <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: space.sm, borderTopWidth: idx === 0 ? 0 : 1, borderTopColor: colors.hairlineOnDark }}>
                               <Text style={[type.numberSm, { color: past ? colors.muted : colors.mutedStrong, width: 52 }]}>
@@ -383,7 +391,11 @@ export default function ThesisDetailScreen() {
                                 <Text style={[type.titleSm, { color: past ? colors.muted : colors.body }]} numberOfLines={2}>
                                   {c.label}{past ? ' · 지남' : ''}
                                 </Text>
-                                {c.detail ? (
+                                {past && c.state_note ? (
+                                  <Text style={[type.bodySm, { color: c.condition_state === 'broken' ? colors.tradingDown : colors.tradingUp, marginTop: 1 }]} numberOfLines={3}>
+                                    확인됨: {c.state_note}
+                                  </Text>
+                                ) : c.detail ? (
                                   <Text style={[type.bodySm, { color: colors.muted, marginTop: 1 }]} numberOfLines={2}>{c.detail}</Text>
                                 ) : null}
                               </View>
