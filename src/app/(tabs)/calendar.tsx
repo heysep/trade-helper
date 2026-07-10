@@ -1,20 +1,35 @@
-import { RefreshControl, SectionList, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, RefreshControl, SectionList, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCheckConditions } from '@/hooks/useCheckConditions';
 import { useMarketEvents } from '@/hooks/useMarketEvents';
 import { CalendarRow, mergeCalendar, groupByMonth, formatMonth } from '@/components/CalendarRow';
 import { EmptyState } from '@/components/EmptyState';
-import { colors, type, space } from '@/theme';
+import { colors, type, space, radius } from '@/theme';
 
 export default function CalendarScreen() {
   const router = useRouter();
+  const [onlyImportant, setOnlyImportant] = useState(false);
   const { data: mine, isLoading, refetch, isRefetching } = useCheckConditions();
   const { data: market, refetch: refetchMarket } = useMarketEvents();
   const merged = mergeCalendar(mine ?? [], market ?? []);
-  const sections = groupByMonth(merged).map((g) => ({ title: formatMonth(g.month), data: g.items }));
+  const visible = onlyImportant ? merged.filter((i) => i.starred) : merged;
+  const sections = groupByMonth(visible).map((g) => ({ title: formatMonth(g.month), data: g.items }));
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.canvasDark, paddingHorizontal: space.md }}>
+      <View style={{ flexDirection: 'row', gap: space.xs, marginTop: space.sm }}>
+        {([['all', '전체'], ['imp', '★ 중요만']] as const).map(([key, label]) => {
+          const active = (key === 'imp') === onlyImportant;
+          return (
+            <Pressable key={key} onPress={() => setOnlyImportant(key === 'imp')}
+              style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill,
+                backgroundColor: active ? colors.primary : colors.surfaceCardDark }}>
+              <Text style={[type.titleSm, { color: active ? colors.onPrimary : colors.mutedStrong }]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
       <SectionList
         sections={sections}
         keyExtractor={(i) => i.id}
