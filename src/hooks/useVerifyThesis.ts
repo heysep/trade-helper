@@ -52,6 +52,29 @@ export function useReviseThesis() {
   });
 }
 
+export interface CheckNowResult {
+  opinion: 'hold' | 'watch' | 'reduce' | 'exit';
+  rationale: string; add_signal: boolean; summary: string;
+  change_level: string; broken: string[];
+}
+
+/** 지금 점검하기: 이 가설만 즉시 스캔+판정 (오늘 결과·감시 상태 갱신) */
+export function useCheckNow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (thesisId: string) => {
+      const { data, error } = await supabase.functions.invoke('gpt-check-now', { body: { thesis_id: thesisId } });
+      if (error) throw new Error('점검 실패 — 잠시 후 다시 시도해 주세요.');
+      return data as CheckNowResult;
+    },
+    onSuccess: (_d, thesisId) => {
+      qc.invalidateQueries({ queryKey: ['conditions', thesisId] });
+      qc.invalidateQueries({ queryKey: ['check_results'] });
+      qc.invalidateQueries({ queryKey: ['signals'] });
+    },
+  });
+}
+
 /** 미리보기 결과로 덮어쓰기 확정 (GPT 재호출 없음) */
 export function useApplyVerify() {
   const qc = useQueryClient();

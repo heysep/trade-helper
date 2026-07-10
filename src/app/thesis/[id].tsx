@@ -4,12 +4,13 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useThesis, useCloseThesis, useUpdateThesis } from '@/hooks/useTheses';
 import { useHoldings } from '@/hooks/useHoldings';
 import { useThesisConditions } from '@/hooks/useCheckConditions';
-import { useVerifyThesis, usePreviewVerify, useApplyVerify, useReviseThesis, VerifyResult, ReviseResult } from '@/hooks/useVerifyThesis';
+import { useVerifyThesis, usePreviewVerify, useApplyVerify, useReviseThesis, useCheckNow, VerifyResult, ReviseResult } from '@/hooks/useVerifyThesis';
 import { PriceChart } from '@/components/PriceChart';
 import { Card } from '@/components/Card';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { ScoreRing } from '@/components/ScoreRing';
 import { TextField } from '@/components/TextField';
+import { SecondaryButton } from '@/components/SecondaryButton';
 import { NumberedText, toNumbered, fromNumbered, autoNumberOnEnter } from '@/components/NumberedText';
 import { DISCLAIMER } from '@/constants/brand';
 import { colors, type, space, radius } from '@/theme';
@@ -58,6 +59,7 @@ export default function ThesisDetailScreen() {
   const close = useCloseThesis();
   const updateThesis = useUpdateThesis();
   const reviseThesis = useReviseThesis();
+  const checkNow = useCheckNow();
   const autoStarted = useRef(false);
   const [pendingResult, setPendingResult] = useState<VerifyResult | null>(null);
   const [tab, setTab] = useState<Tab>('mine');
@@ -84,6 +86,17 @@ export default function ThesisDetailScreen() {
       thesisId: id!,
       fields: { buy_reason: fromNumbered(eBuy), break_conditions: fromNumbered(eBreak), add_conditions: fromNumbered(eAdd) || null, target_horizon: eHorizon.trim() },
     }, { onSuccess: () => setEditing(false), onError: (e) => Alert.alert('저장 실패', e.message) });
+  };
+  const runCheckNow = () => {
+    checkNow.mutate(id!, {
+      onSuccess: (r) => Alert.alert(
+        '점검 완료',
+        r.change_level === 'none' && !r.broken.length
+          ? '특이사항 없어요. 관점 유지.'
+          : r.rationale,
+      ),
+      onError: (e) => Alert.alert('점검 실패', e.message),
+    });
   };
   const askRevision = () => {
     reviseThesis.mutate(id!, {
@@ -265,18 +278,12 @@ export default function ThesisDetailScreen() {
                 </Pressable>
               </View>
             ) : (
-              <Pressable onPress={askRevision} disabled={reviseThesis.isPending}>
-                <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>
-                  {reviseThesis.isPending ? '수정안 만드는 중…' : '피드백 반영 수정안 받기'}
-                </Text>
-              </Pressable>
+              <SecondaryButton accent title={reviseThesis.isPending ? '수정안 만드는 중…' : '피드백 반영 수정안 받기'}
+                loading={reviseThesis.isPending} onPress={askRevision} />
             )}
             {!pendingResult ? (
-              <Pressable onPress={startRecheck} disabled={preview.isPending}>
-                <Text style={[type.button, { color: colors.mutedStrong, textAlign: 'center', paddingVertical: space.xs }]}>
-                  {preview.isPending ? 'AI 검증 중… (기존 결과는 그대로)' : 'AI 재검증'}
-                </Text>
-              </Pressable>
+              <SecondaryButton title={preview.isPending ? 'AI 검증 중…' : 'AI 재검증'}
+                loading={preview.isPending} onPress={startRecheck} />
             ) : null}
           </Card>
         ) : verify.isPending ? (
@@ -347,7 +354,9 @@ export default function ThesisDetailScreen() {
                 );
               });
             })()}
-            <Text style={[type.caption, { color: colors.muted }]}>매일 점검 때 깨짐 여부를 자동으로 추적해요</Text>
+            <SecondaryButton accent title={checkNow.isPending ? '점검 중… (1~2분)' : '지금 점검하기'}
+              loading={checkNow.isPending} onPress={runCheckNow} />
+            <Text style={[type.caption, { color: colors.muted, marginTop: space.xs }]}>매일 자동 점검 외에, 궁금할 때 바로 확인할 수 있어요</Text>
           </>
         )
       ) : null}
@@ -384,9 +393,7 @@ export default function ThesisDetailScreen() {
                   <Text style={[type.bodyMd, { color: colors.body }]}>{thesis.target_horizon}</Text>
                 </Section>
                 {thesis.status !== 'closed' ? (
-                  <Pressable onPress={startEdit}>
-                    <Text style={[type.button, { color: colors.primary, textAlign: 'center', paddingVertical: space.xs }]}>가설 수정하기</Text>
-                  </Pressable>
+                  <SecondaryButton accent title="가설 수정하기" onPress={startEdit} />
                 ) : null}
               </>
             )}
