@@ -21,7 +21,11 @@ export function useAddHolding() {
       const { data, error } = await supabase.from('holdings')
         .insert({ ...input, ticker: input.ticker.toUpperCase(), user_id: userData.user!.id })
         .select().single();
-      if (error) throw new Error(error.message.includes('FREE_PLAN_LIMIT') ? '무료 플랜은 종목 5개까지 등록할 수 있어요.' : error.message);
+      if (error) {
+        if (error.message.includes('FREE_PLAN_LIMIT')) throw new Error('무료 플랜은 종목 5개까지 등록할 수 있어요.');
+        if (error.message.includes('duplicate key')) throw new Error('이미 등록된 종목이에요. 기존 가설에서 관리해 주세요.');
+        throw new Error(error.message);
+      }
       return data as unknown as Holding;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['holdings'] }),
