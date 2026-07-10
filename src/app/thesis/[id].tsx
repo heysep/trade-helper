@@ -4,13 +4,14 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useThesis, useCloseThesis, useUpdateThesis } from '@/hooks/useTheses';
 import { useHoldings } from '@/hooks/useHoldings';
 import { useThesisConditions } from '@/hooks/useCheckConditions';
-import { useVerifyThesis, usePreviewVerify, useApplyVerify, useReviseThesis, useCheckNow, VerifyResult, ReviseResult } from '@/hooks/useVerifyThesis';
+import { useVerifyThesis, usePreviewVerify, useApplyVerify, useReviseThesis, useCheckNow, VerifyResult, ReviseResult, CheckNowResult } from '@/hooks/useVerifyThesis';
 import { PriceChart } from '@/components/PriceChart';
 import { Card } from '@/components/Card';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { ScoreRing } from '@/components/ScoreRing';
 import { TextField } from '@/components/TextField';
 import { SecondaryButton } from '@/components/SecondaryButton';
+import { StatusBadge } from '@/components/StatusBadge';
 import { NumberedText, toNumbered, fromNumbered, autoNumberOnEnter } from '@/components/NumberedText';
 import { DISCLAIMER } from '@/constants/brand';
 import { colors, type, space, radius } from '@/theme';
@@ -69,6 +70,7 @@ export default function ThesisDetailScreen() {
   const [eAdd, setEAdd] = useState('');
   const [eHorizon, setEHorizon] = useState('');
   const [revision, setRevision] = useState<ReviseResult | null>(null);
+  const [nowResult, setNowResult] = useState<CheckNowResult | null>(null);
   const [justVerified, setJustVerified] = useState(false);
   const [aiSeen, setAiSeen] = useState(false);
 
@@ -88,13 +90,9 @@ export default function ThesisDetailScreen() {
     }, { onSuccess: () => setEditing(false), onError: (e) => Alert.alert('저장 실패', e.message) });
   };
   const runCheckNow = () => {
+    setNowResult(null);
     checkNow.mutate(id!, {
-      onSuccess: (r) => Alert.alert(
-        '점검 완료',
-        r.change_level === 'none' && !r.broken.length
-          ? '특이사항 없어요. 관점 유지.'
-          : r.rationale,
-      ),
+      onSuccess: (r) => setNowResult(r),
       onError: (e) => Alert.alert('점검 실패', e.message),
     });
   };
@@ -308,52 +306,99 @@ export default function ThesisDetailScreen() {
         ) : (
           <>
             {(() => {
-              // 논점(가설)별로 묶어서 표시
-              const groups = new Map<string, NonNullable<typeof conditions>>();
-              for (const c of conditions ?? []) {
+              const all = conditions ?? [];
+              const todayStr = new Date().toISOString().slice(0, 10);
+              const scheduled = all.filter((c) => !!c.next_check_date).sort((a, b) => a.next_check_date!.localeCompare(b.next_check_date!));
+              const thesisBased = all.filter((c) => !c.next_check_date);
+              const groups = new Map<string, typeof thesisBased>();
+              for (const c of thesisBased) {
                 const key = c.reason_label ?? (c.source === 'user' ? '내가 고른 항목' : '일반 감시');
                 if (!groups.has(key)) groups.set(key, []);
                 groups.get(key)!.push(c);
               }
-              return [...groups.entries()].map(([reason, items]) => {
-                const anyBroken = items.some((c) => c.condition_state === 'broken');
-                return (
-                  <Card key={reason} style={{ marginBottom: space.md }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.sm }}>
-                      <Text style={[type.titleMd, { color: colors.onDark, flex: 1, marginRight: space.xs }]}>{reason}</Text>
-                      <Text style={[type.titleSm, { color: anyBroken ? colors.tradingDown : colors.tradingUp }]}>
-                        {anyBroken ? '비정상' : '정상'}
-                      </Text>
-                    </View>
-                    {items.map((c) => {
-                      const meta = STATE_META[c.condition_state] ?? STATE_META.ok;
-                      const past = !!c.next_check_date && c.next_check_date < new Date().toISOString().slice(0, 10);
-                      const note = c.condition_state === 'broken'
-                        ? (c.state_note || '깨지는 조건에 해당하는 변화가 감지됐어요.')
-                        : '최근 점검에서 특이사항이 없었어요.';
-                      return (
-                        <View key={c.id} style={{ paddingVertical: space.sm, borderTopWidth: 1, borderTopColor: colors.hairlineOnDark }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: meta.color + '26', alignItems: 'center', justifyContent: 'center', marginRight: space.sm }}>
-                              <Text style={{ color: meta.color, fontSize: 11, fontWeight: '700' }}>{meta.icon}</Text>
-                            </View>
-                            <Text style={[type.titleSm, { color: past ? colors.muted : colors.body, flex: 1 }]} numberOfLines={2}>{c.label}</Text>
-                            {c.next_check_date ? (
-                              <Text style={[type.numberSm, { color: colors.muted, marginLeft: space.xs }]}>
-                                {c.next_check_date.slice(5).replace('-', '.')}{past ? '·지남' : ''}
+              return (
+                <>
+                  {scheduled.length ? (
+                    <>
+                      <Text style={[type.titleSm, { color: colors.muted, marginBottom: space.xs }]}>일정 기반 감시</Text>
+                      <Card style={{ marginBottom: space.md }}>
+                        {scheduled.map((c, idx) => {
+                          const meta = STATE_META[c.condition_state] ?? STATE_META.ok;
+                          const past = c.next_check_date! < todayStr;
+                          return (
+                            <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: space.sm, borderTopWidth: idx === 0 ? 0 : 1, borderTopColor: colors.hairlineOnDark }}>
+                              <Text style={[type.numberSm, { color: past ? colors.muted : colors.mutedStrong, width: 52 }]}>
+                                {c.next_check_date!.slice(5).replace('-', '.')}
                               </Text>
-                            ) : null}
-                          </View>
-                          <Text style={[type.bodySm, { color: c.condition_state === 'broken' ? colors.tradingDown : colors.muted, marginTop: 2, marginLeft: 32 }]}>
-                            {note}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </Card>
-                );
-              });
+                              <Text style={[type.titleSm, { color: past ? colors.muted : colors.body, flex: 1 }]} numberOfLines={2}>
+                                {c.label}{past ? ' · 지남' : ''}
+                              </Text>
+                              <Text style={[type.caption, { color: meta.color, marginLeft: space.xs }]}>{meta.label}</Text>
+                            </View>
+                          );
+                        })}
+                      </Card>
+                    </>
+                  ) : null}
+
+                  {groups.size ? (
+                    <>
+                      <Text style={[type.titleSm, { color: colors.muted, marginBottom: space.xs }]}>가설 기반 검증</Text>
+                      {[...groups.entries()].map(([reason, items]) => {
+                        const anyBroken = items.some((c) => c.condition_state === 'broken');
+                        return (
+                          <Card key={reason} style={{ marginBottom: space.md }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.xs }}>
+                              <Text style={[type.titleMd, { color: colors.onDark, flex: 1, marginRight: space.xs }]}>{reason}</Text>
+                              <Text style={[type.titleSm, { color: anyBroken ? colors.tradingDown : colors.tradingUp }]}>
+                                {anyBroken ? '비정상' : '정상'}
+                              </Text>
+                            </View>
+                            {items.map((c) => {
+                              const meta = STATE_META[c.condition_state] ?? STATE_META.ok;
+                              const note = c.condition_state === 'broken'
+                                ? (c.state_note || '깨지는 조건에 해당하는 변화가 감지됐어요.')
+                                : '최근 점검에서 특이사항이 없었어요.';
+                              return (
+                                <View key={c.id} style={{ paddingVertical: space.sm, borderTopWidth: 1, borderTopColor: colors.hairlineOnDark }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: meta.color + '26', alignItems: 'center', justifyContent: 'center', marginRight: space.sm }}>
+                                      <Text style={{ color: meta.color, fontSize: 11, fontWeight: '700' }}>{meta.icon}</Text>
+                                    </View>
+                                    <Text style={[type.titleSm, { color: colors.body, flex: 1 }]} numberOfLines={2}>{c.label}</Text>
+                                  </View>
+                                  <Text style={[type.bodySm, { color: c.condition_state === 'broken' ? colors.tradingDown : colors.muted, marginTop: 2, marginLeft: 32 }]}>
+                                    {note}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </Card>
+                        );
+                      })}
+                    </>
+                  ) : null}
+                </>
+              );
             })()}
+
+            {nowResult ? (
+              <Card style={{ marginBottom: space.xs, borderWidth: 1, borderColor: colors.hairlineOnDark }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.xs }}>
+                  <Text style={[type.titleSm, { color: colors.onDark }]}>방금 점검 결과</Text>
+                  <StatusBadge status={nowResult.opinion} />
+                </View>
+                <Text style={[type.bodyMd, { color: colors.body }]}>
+                  {nowResult.change_level === 'none' && !nowResult.broken.length
+                    ? '특이사항 없어요. 관점을 흔들 만한 새 소식이 없습니다.'
+                    : nowResult.rationale}
+                </Text>
+                {nowResult.add_signal ? (
+                  <Text style={[type.bodySm, { color: colors.primary, marginTop: space.xxs }]}>추가매수 조건 달성 신호가 있어요.</Text>
+                ) : null}
+              </Card>
+            ) : null}
+
             <SecondaryButton accent title={checkNow.isPending ? '점검 중… (1~2분)' : '지금 점검하기'}
               loading={checkNow.isPending} onPress={runCheckNow} />
             <Text style={[type.caption, { color: colors.muted, marginTop: space.xs }]}>매일 자동 점검 외에, 궁금할 때 바로 확인할 수 있어요</Text>
