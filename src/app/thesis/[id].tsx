@@ -347,16 +347,27 @@ export default function ThesisDetailScreen() {
                     <>
                       <Text style={[type.titleSm, { color: colors.muted, marginBottom: space.xs }]}>가설 기반 검증</Text>
                       {[...groups.entries()].map(([reason, items]) => {
+                        // 논점 행(label == reason)은 헤더로 흡수 — 중복 표시 방지
+                        const selfRow = items.find((c) => c.label === reason);
+                        const subItems = items.filter((c) => c.label !== reason);
                         const anyBroken = items.some((c) => c.condition_state === 'broken');
+                        const headerBroken = selfRow ? selfRow.condition_state === 'broken' : anyBroken;
                         return (
                           <Card key={reason} style={{ marginBottom: space.md }}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.xs }}>
                               <Text style={[type.titleMd, { color: colors.onDark, flex: 1, marginRight: space.xs }]}>{reason}</Text>
-                              <Text style={[type.titleSm, { color: anyBroken ? colors.tradingDown : colors.tradingUp }]}>
-                                {anyBroken ? '비정상' : '정상'}
+                              <Text style={[type.titleSm, { color: headerBroken ? colors.tradingDown : colors.tradingUp }]}>
+                                {headerBroken ? '비정상' : '정상'}
                               </Text>
                             </View>
-                            {items.map((c) => {
+                            {selfRow ? (
+                              <Text style={[type.bodySm, { color: headerBroken ? colors.tradingDown : colors.muted, marginBottom: space.xs }]}>
+                                {headerBroken
+                                  ? (selfRow.state_note || '이 논점을 흔드는 변화가 감지됐어요.')
+                                  : '최근 점검 기준으로 이 논점은 유효해요.'}
+                              </Text>
+                            ) : null}
+                            {subItems.map((c) => {
                               const meta = STATE_META[c.condition_state] ?? STATE_META.ok;
                               const note = c.condition_state === 'broken'
                                 ? (c.state_note || '깨지는 조건에 해당하는 변화가 감지됐어요.')

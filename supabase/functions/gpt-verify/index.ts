@@ -97,10 +97,19 @@ async function persistResult(supabase: any, thesis_id: string, result: VerifyRes
   }).eq("id", thesis_id);
   // 재검증 시 AI 생성 조건만 갈아끼움 — 사용자가 직접 고른 감시 항목(source=user)은 보존
   await supabase.from("check_conditions").delete().eq("thesis_id", thesis_id).eq("status", "open").eq("source", "ai");
-  if (result.check_conditions.length) {
-    await supabase.from("check_conditions").insert(
-      result.check_conditions.map((c) => ({ thesis_id, label: c.label, reason_label: c.for_reason ?? null, event_type: c.event_type, next_check_date: c.next_check_date, source: "ai" })),
-    );
+  const rows = [
+    // 사용자의 논점 자체를 감시 대상으로 (label == reason_label 인 행이 논점 행)
+    ...result.reason_reviews.map((r) => ({
+      thesis_id, label: r.reason, reason_label: r.reason,
+      event_type: "custom", next_check_date: null, source: "ai",
+    })),
+    ...result.check_conditions.map((c) => ({
+      thesis_id, label: c.label, reason_label: c.for_reason ?? null,
+      event_type: c.event_type, next_check_date: c.next_check_date, source: "ai",
+    })),
+  ];
+  if (rows.length) {
+    await supabase.from("check_conditions").insert(rows);
   }
 }
 
