@@ -308,8 +308,10 @@ export default function ThesisDetailScreen() {
             {(() => {
               const all = conditions ?? [];
               const todayStr = new Date().toISOString().slice(0, 10);
-              const scheduled = all.filter((c) => !!c.next_check_date).sort((a, b) => a.next_check_date!.localeCompare(b.next_check_date!));
-              const thesisBased = all.filter((c) => !c.next_check_date);
+              // 실적·가이던스 = 일정 기반 / 지표·조건 = 가설(내 관점) 기반
+              const isEvent = (c: NonNullable<typeof conditions>[number]) => c.event_type === 'earnings' || c.event_type === 'guidance';
+              const scheduled = all.filter((c) => isEvent(c) && !!c.next_check_date).sort((a, b) => a.next_check_date!.localeCompare(b.next_check_date!));
+              const thesisBased = all.filter((c) => !isEvent(c) || !c.next_check_date);
               const groups = new Map<string, typeof thesisBased>();
               for (const c of thesisBased) {
                 const key = c.reason_label ?? (c.source === 'user' ? '내가 고른 항목' : '일반 감시');
@@ -366,6 +368,9 @@ export default function ThesisDetailScreen() {
                                       <Text style={{ color: meta.color, fontSize: 11, fontWeight: '700' }}>{meta.icon}</Text>
                                     </View>
                                     <Text style={[type.titleSm, { color: colors.body, flex: 1 }]} numberOfLines={2}>{c.label}</Text>
+                                    {c.next_check_date ? (
+                                      <Text style={[type.numberSm, { color: colors.muted, marginLeft: space.xs }]}>{c.next_check_date.slice(5).replace('-', '.')}</Text>
+                                    ) : null}
                                   </View>
                                   <Text style={[type.bodySm, { color: c.condition_state === 'broken' ? colors.tradingDown : colors.muted, marginTop: 2, marginLeft: 32 }]}>
                                     {note}
