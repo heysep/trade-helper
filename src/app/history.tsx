@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { RefreshControl, ScrollView, Text, View, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useStats } from '@/hooks/useStats';
 import { useTheses } from '@/hooks/useTheses';
 import { useHoldings } from '@/hooks/useHoldings';
@@ -8,6 +9,14 @@ import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { colors, type, space, radius } from '@/theme';
 import type { Thesis } from '@/types/db';
+
+type Filter = 'all' | 'active' | 'success' | 'fail';
+const FILTERS: Array<{ key: Filter; label: string }> = [
+  { key: 'all', label: '전체' },
+  { key: 'active', label: '진행중' },
+  { key: 'success', label: '성공' },
+  { key: 'fail', label: '실패' },
+];
 
 function outcomeMeta(t: Thesis): { label: string; color: string } {
   if (t.status !== 'closed') return { label: '진행중', color: colors.primary };
@@ -21,14 +30,22 @@ function period(t: Thesis): string {
   return `${d(t.opened_at)} ~ ${t.closed_at ? d(t.closed_at) : '현재'}`;
 }
 
+function matches(t: Thesis, f: Filter): boolean {
+  if (f === 'all') return true;
+  if (f === 'active') return t.status !== 'closed';
+  return t.outcome === f;
+}
+
 export default function HistoryScreen() {
   const router = useRouter();
+  const [filter, setFilter] = useState<Filter>('all');
   const { data: stats, refetch, isRefetching } = useStats();
   const { data: theses, refetch: refetchTheses } = useTheses();
   const { data: holdings } = useHoldings();
   if (!stats) return null;
 
-  const holdingName = (id: string) => (holdings ?? []).find((h) => h.id === id);
+  const holdingOf = (id: string) => (holdings ?? []).find((h) => h.id === id);
+  const list = (theses ?? []).filter((t) => matches(t, filter));
 
   return (
     <ScrollView
@@ -36,18 +53,27 @@ export default function HistoryScreen() {
       contentContainerStyle={{ padding: space.md, paddingBottom: space.xxl }}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { refetch(); refetchTheses(); }} tintColor={colors.primary} />}
     >
-      <Text style={[type.displaySm, { color: colors.onDark, marginBottom: space.lg }]}>내 투자 가설 통계</Text>
+      <Stack.Screen options={{ title: '가설 히스토리' }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
         <StatCallout label="전체 가설" value={String(stats.total)} />
-        <StatCallout label="유효(진행중)" value={String(stats.active)} />
+        <StatCallout label="진행중" value={String(stats.active)} />
         <StatCallout label="성공" value={String(stats.success)} />
         <StatCallout label="실패" value={String(stats.fail)} />
         <StatCallout label="평균 유지 기간" value={stats.avgHoldingDays !== null ? `${stats.avgHoldingDays}일` : '—'} />
       </View>
 
-      <Text style={[type.titleLg, { color: colors.onDark, marginTop: space.lg, marginBottom: space.sm }]}>가설 히스토리</Text>
-      {(theses ?? []).map((t) => {
-        const h = holdingName(t.holding_id);
+      <View style={{ flexDirection: 'row', gap: space.xs, marginTop: space.lg, marginBottom: space.md }}>
+        {FILTERS.map((f) => (
+          <Pressable key={f.key} onPress={() => setFilter(f.key)}
+            style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill,
+              backgroundColor: filter === f.key ? colors.primary : colors.surfaceCardDark }}>
+            <Text style={[type.titleSm, { color: filter === f.key ? colors.onPrimary : colors.mutedStrong }]}>{f.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {list.map((t) => {
+        const h = holdingOf(t.holding_id);
         const meta = outcomeMeta(t);
         return (
           <Pressable key={t.id} onPress={() => router.push(`/thesis/${t.id}`)}>
@@ -70,11 +96,13 @@ export default function HistoryScreen() {
           </Pressable>
         );
       })}
-      {(theses ?? []).length === 0 ? (
+      {list.length === 0 ? (
         <EmptyState
-          message={'아직 기록한 가설이 없어요.\n가설을 쌓으면 성공/실패 패턴을 복기할 수 있어요.'}
-          ctaLabel="첫 가설 기록하기"
-          ctaHref="/holding/new"
+          message={filter === 'all'
+            ? '아직 기록한 가설이 없어요.\n가설을 쌓으면 성공/실패 패턴을 복기할 수 있어요.'
+            : '이 조건에 해당하는 가설이 없어요.'}
+          ctaLabel={filter === 'all' ? '첫 가설 기록하기' : undefined}
+          ctaHref={filter === 'all' ? '/holding/new' : undefined}
         />
       ) : null}
     </ScrollView>

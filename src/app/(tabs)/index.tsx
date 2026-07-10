@@ -18,10 +18,13 @@ export default function HoldingsScreen() {
   const activeThesis = (holdingId: string) =>
     (theses ?? []).find((t) => t.holding_id === holdingId && t.status !== 'closed');
 
+  // 활성 가설이 있는 종목만 메인에 — 종료(성공/실패)된 건 히스토리에서 관리
+  const visibleHoldings = (holdings ?? []).filter((h) => activeThesis(h.id));
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.canvasDark, padding: space.md }}>
       <FlatList
-        data={holdings ?? []}
+        data={visibleHoldings}
         keyExtractor={(h) => h.id}
         contentContainerStyle={{ paddingBottom: space.xxl }}
         refreshControl={

@@ -15,7 +15,7 @@ export default function TabLayout() {
       <Tabs.Screen name="index" options={{ title: '종목', tabBarIcon: ({ color, size }) => <Ionicons name="briefcase-outline" color={color} size={size} /> }} />
       <Tabs.Screen name="calendar" options={{ title: '일정', tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color} size={size} /> }} />
       <Tabs.Screen name="checks" options={{ title: '점검', tabBarIcon: ({ color, size }) => <Ionicons name="pulse-outline" color={color} size={size} /> }} />
-      <Tabs.Screen name="history" options={{ title: '히스토리', tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart-outline" color={color} size={size} /> }} />
+      <Tabs.Screen name="settings" options={{ title: '설정', tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} /> }} />
     </Tabs>
   );
 }
