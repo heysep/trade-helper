@@ -76,6 +76,8 @@ export default function ThesisDetailScreen() {
   const [revision, setRevision] = useState<ReviseResult | null>(null);
   const [nowResult, setNowResult] = useState<CheckNowResult | null>(null);
   const toast = useToast();
+  const scrollRef = useRef<ScrollView>(null);
+  const tabsY = useRef(0);
   const dialog = useDialog();
   const [justVerified, setJustVerified] = useState(false);
   const [aiSeen, setAiSeen] = useState(false);
@@ -193,7 +195,7 @@ export default function ThesisDetailScreen() {
   const review = thesis.soundness_review;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.canvasDark }} contentContainerStyle={{ padding: space.md, paddingBottom: space.xxl }}>
+    <ScrollView ref={scrollRef} style={{ flex: 1, backgroundColor: colors.canvasDark }} contentContainerStyle={{ padding: space.md, paddingBottom: space.xxl }}>
       <Stack.Screen options={{ title: holding ? `${holding.name} 가설` : '가설' }} />
       {holding && <View style={{ marginBottom: space.md }}><PriceChart ticker={holding.ticker} market={holding.market} /></View>}
 
@@ -215,9 +217,16 @@ export default function ThesisDetailScreen() {
       ) : null}
 
       {/* ── 탭 ── */}
-      <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceCardDark, borderRadius: radius.lg, padding: 4, marginBottom: space.md }}>
+      <View
+        onLayout={(e) => { tabsY.current = e.nativeEvent.layout.y; }}
+        style={{ flexDirection: 'row', backgroundColor: colors.surfaceCardDark, borderRadius: radius.lg, padding: 4, marginBottom: space.md }}>
         {TABS.map((t) => (
-          <Pressable key={t.key} onPress={() => { setTab(t.key); if (t.key === 'ai') setAiSeen(true); }}
+          <Pressable key={t.key} onPress={() => {
+              setTab(t.key);
+              if (t.key === 'ai') setAiSeen(true);
+              // 탭 전환 시 탭바가 보이도록 스크롤 — 아래 내용이 화면 밖에 있는 혼란 방지
+              scrollRef.current?.scrollTo({ y: Math.max(0, tabsY.current - space.sm), animated: true });
+            }}
             style={{ flex: 1, paddingVertical: 8, borderRadius: radius.md, alignItems: 'center',
               backgroundColor: tab === t.key ? colors.surfaceElevatedDark : 'transparent' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -230,7 +239,8 @@ export default function ThesisDetailScreen() {
         ))}
       </View>
 
-      {/* ── AI 분석 탭 ── */}
+      {/* ── 탭 컨텐츠 (최소 높이로 점프감 방지) ── */}
+      <View style={{ minHeight: 420 }}>
       {tab === 'ai' ? (
         verify.isPending ? (
           <Card style={{ alignItems: 'center', paddingVertical: space.xl }}>
@@ -542,6 +552,7 @@ export default function ThesisDetailScreen() {
         </>
       ) : null}
 
+      </View>
       <Text style={[type.bodySm, { color: colors.muted, marginTop: space.lg }]}>{DISCLAIMER}</Text>
     </ScrollView>
   );

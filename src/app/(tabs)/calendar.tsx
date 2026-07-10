@@ -20,7 +20,7 @@ export default function CalendarScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.canvasDark, paddingHorizontal: space.md }}>
-      <View style={{ flexDirection: 'row', gap: space.xs, marginTop: space.sm }}>
+      <View style={{ flexDirection: 'row', gap: space.xs, marginTop: space.md, marginBottom: space.xxs }}>
         {([['all', '전체'], ['imp', '★ 중요만']] as const).map(([key, label]) => {
           const active = (key === 'imp') === onlyImportant;
           return (
