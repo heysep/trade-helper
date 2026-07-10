@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SessionProvider } from '@/lib/session';
+import { ToastProvider } from '@/components/Toast';
 import { registerPushToken } from '@/lib/push';
 import { colors } from '@/theme';
 
@@ -31,6 +32,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
+        <ToastProvider>
         <Stack screenOptions={{
           headerStyle: { backgroundColor: colors.canvasDark },
           headerTintColor: colors.onDark,
@@ -40,6 +42,7 @@ export default function RootLayout() {
         }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
+        </ToastProvider>
       </SessionProvider>
     </QueryClientProvider>
   );

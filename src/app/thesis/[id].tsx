@@ -13,6 +13,7 @@ import { TextField } from '@/components/TextField';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { StatusBadge } from '@/components/StatusBadge';
 import { NumberedText, toNumbered, fromNumbered, autoNumberOnEnter } from '@/components/NumberedText';
+import { useToast } from '@/components/Toast';
 import { DISCLAIMER } from '@/constants/brand';
 import { colors, type, space, radius } from '@/theme';
 
@@ -73,6 +74,7 @@ export default function ThesisDetailScreen() {
   const [eHorizon, setEHorizon] = useState('');
   const [revision, setRevision] = useState<ReviseResult | null>(null);
   const [nowResult, setNowResult] = useState<CheckNowResult | null>(null);
+  const toast = useToast();
   const [justVerified, setJustVerified] = useState(false);
   const [aiSeen, setAiSeen] = useState(false);
 
@@ -94,7 +96,7 @@ export default function ThesisDetailScreen() {
         setEditing(false);
         Alert.alert('저장 완료', '가설이 바뀌어서 기존 AI 검증 결과와 다를 수 있어요. 지금 다시 검증할까요?', [
           { text: '지금 검증', onPress: () => { setTab('ai'); verify.mutate(id!, {
-            onSuccess: () => { setJustVerified(true); setAiSeen(false); setTimeout(() => setJustVerified(false), 4000); },
+            onSuccess: () => { toast.show('AI 재검증 완료'); setJustVerified(true); setAiSeen(false); setTimeout(() => setJustVerified(false), 4000); },
             onError: (e) => Alert.alert('재검증 실패', e.message),
           }); } },
           { text: '나중에', style: 'cancel' },
@@ -106,7 +108,7 @@ export default function ThesisDetailScreen() {
   const runCheckNow = () => {
     setNowResult(null);
     checkNow.mutate(id!, {
-      onSuccess: (r) => setNowResult(r),
+      onSuccess: (r) => { setNowResult(r); toast.show('점검 완료'); },
       onError: (e) => Alert.alert('점검 실패', e.message),
     });
   };
@@ -134,7 +136,7 @@ export default function ThesisDetailScreen() {
         // 가설이 바뀌었으니 기존 검증은 무효 — 새 가설로 자동 재검증
         setTab('ai');
         verify.mutate(id!, {
-          onSuccess: () => { setJustVerified(true); setAiSeen(false); setTimeout(() => setJustVerified(false), 4000); },
+          onSuccess: () => { toast.show('AI 재검증 완료'); setJustVerified(true); setAiSeen(false); setTimeout(() => setJustVerified(false), 4000); },
           onError: (e) => Alert.alert('재검증 실패', e.message + '\nAI 재검증 버튼으로 다시 시도해 주세요.'),
         });
       },
@@ -146,7 +148,7 @@ export default function ThesisDetailScreen() {
     if (thesis && !thesis.soundness_review && thesis.status !== 'closed' && !autoStarted.current && !verify.isPending) {
       autoStarted.current = true;
       verify.mutate(id!, {
-        onSuccess: () => { setJustVerified(true); setAiSeen(false); setTimeout(() => setJustVerified(false), 4000); },
+        onSuccess: () => { toast.show('AI 검증 완료'); setJustVerified(true); setAiSeen(false); setTimeout(() => setJustVerified(false), 4000); },
         onError: () => {},
       });
     }
@@ -161,7 +163,7 @@ export default function ThesisDetailScreen() {
   const confirmOverwrite = () => {
     if (!pendingResult) return;
     applyVerify.mutate({ thesisId: id!, result: pendingResult }, {
-      onSuccess: () => setPendingResult(null),
+      onSuccess: () => { setPendingResult(null); toast.show('새 검증 결과로 저장됨'); },
       onError: (e) => Alert.alert('저장 실패', e.message),
     });
   };
