@@ -10,7 +10,15 @@ import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // 포커스 전환마다 자동 refetch → 새로고침 스피너가 혼자 도는 것처럼 보임. 수동 당김/무효화만 사용.
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 export default function RootLayout() {
   const [loaded] = useFonts({

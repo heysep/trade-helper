@@ -166,23 +166,6 @@ export default function ThesisDetailScreen() {
         </View>
       ) : null}
 
-      {/* ── 재점검 미리보기 ── */}
-      {pendingResult ? (
-        <Card style={{ marginBottom: space.md, borderWidth: 1, borderColor: colors.primary }}>
-          <Text style={[type.titleMd, { color: colors.primary, marginBottom: space.md }]}>새 검증 결과 (아직 저장 안 됨)</Text>
-          <View style={{ alignItems: 'center', marginBottom: space.md }}>
-            <ScoreRing score={pendingResult.score} />
-            {pendingResult.summary ? (
-              <Text style={[type.titleSm, { color: colors.onDark, textAlign: 'center', marginTop: space.md }]}>{pendingResult.summary}</Text>
-            ) : null}
-          </View>
-          <PrimaryButton title={applyVerify.isPending ? '저장 중…' : '이 결과로 덮어쓰기'} disabled={applyVerify.isPending} onPress={confirmOverwrite} />
-          <Pressable onPress={() => setPendingResult(null)} disabled={applyVerify.isPending}>
-            <Text style={[type.button, { color: colors.muted, textAlign: 'center', paddingVertical: space.sm }]}>기존 결과 유지</Text>
-          </Pressable>
-        </Card>
-      ) : null}
-
       {/* ── 탭 ── */}
       <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceCardDark, borderRadius: radius.lg, padding: 4, marginBottom: space.md }}>
         {TABS.map((t) => (
@@ -201,7 +184,32 @@ export default function ThesisDetailScreen() {
 
       {/* ── AI 분석 탭 ── */}
       {tab === 'ai' ? (
-        review ? (
+        preview.isPending ? (
+          <Card style={{ alignItems: 'center', paddingVertical: space.xl }}>
+            <ActivityIndicator color={colors.primary} size="large" />
+            <Text style={[type.titleSm, { color: colors.onDark, marginTop: space.md }]}>AI가 다시 검증하고 있어요</Text>
+            <Text style={[type.bodySm, { color: colors.muted, marginTop: space.xxs, textAlign: 'center' }]}>
+              30초~1분 30초 정도 걸려요{'\n'}기존 결과는 그대로 유지돼요. 이 화면에 머물러 주세요.
+            </Text>
+          </Card>
+        ) : pendingResult ? (
+          <Card style={{ borderWidth: 1, borderColor: colors.primary }}>
+            <Text style={[type.titleMd, { color: colors.primary, marginBottom: space.md }]}>새 검증 결과 (아직 저장 안 됨)</Text>
+            <View style={{ alignItems: 'center', marginBottom: space.md }}>
+              <ScoreRing score={pendingResult.score} />
+              {pendingResult.summary ? (
+                <Text style={[type.titleSm, { color: colors.onDark, textAlign: 'center', marginTop: space.md }]}>{pendingResult.summary}</Text>
+              ) : null}
+              <View style={{ flexDirection: 'row', gap: space.xs, marginTop: space.sm, flexWrap: 'wrap', justifyContent: 'center' }}>
+                {pendingResult.reason_reviews.map((r, i) => <VerdictBadge key={i} verdict={r.verdict} />)}
+              </View>
+            </View>
+            <PrimaryButton title={applyVerify.isPending ? '저장 중…' : '이 결과로 덮어쓰기'} disabled={applyVerify.isPending} onPress={confirmOverwrite} />
+            <Pressable onPress={() => setPendingResult(null)} disabled={applyVerify.isPending}>
+              <Text style={[type.button, { color: colors.muted, textAlign: 'center', paddingVertical: space.sm }]}>기존 결과 유지</Text>
+            </Pressable>
+          </Card>
+        ) : review ? (
           <Card>
             {(review.reason_reviews ?? []).map((r, i) => (
               <View key={i} style={{ marginBottom: space.md, paddingBottom: space.md, borderBottomWidth: 1, borderBottomColor: colors.hairlineOnDark }}>
