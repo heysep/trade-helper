@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { callOpenAI, parseJsonBlock, stripLinks } from "../_shared/openai.ts";
+import { callOpenAI, NO_ADVICE_RULE, OUTPUT_RULES, parseJsonBlock, stripLinks } from "../_shared/openai.ts";
 
 interface VerifyResult {
   score: number;
@@ -12,16 +12,15 @@ interface VerifyResult {
 }
 
 export function buildVerifyPrompt(p: { name: string; ticker: string; market: string; buy_reason: string; break_conditions: string; target_horizon: string; today: string }): string {
-  return `당신은 투자 가설 점검 도우미다. 자문·추천이 아니라, 사용자가 쓴 매수 이유를 하나씩 점검해주는 역할이다. "매수/매도하세요" 같은 표현 금지.
+  return `당신은 투자 가설 점검 도우미다. 사용자가 쓴 매수 이유를 논점별로 점검해주는 역할이다. ${NO_ADVICE_RULE}
 오늘: ${p.today}
 종목: ${p.name} (${p.market}:${p.ticker})
 사용자의 매수 이유: ${p.buy_reason}
 깨지는 조건: ${p.break_conditions}
 목표 보유 기간: ${p.target_horizon}
 
-먼저 사용자의 매수 이유를 개별 논점으로 나눠라 (번호·줄바꿈·문장 단위).
-그 다음 웹검색으로 종목의 실제 상황과 다가오는 이벤트(실적발표일 등)를 확인하고, 다음 JSON만 출력:
-{"score":0,"summary":"한 줄 총평 (40자 이내)","reason_reviews":[{"reason":"논점 요약 (20자 이내)","verdict":"타당|부분 타당|약함","comment":"왜 그런지 쉬운 말 1-2문장"}],"missing_points":["사용자가 놓친 관점 1-3개, 각 한 문장"],"counterpoints":["가설이 깨질 수 있는 시나리오 2-4개, 각 한 문장"],"add_candidates":["추가매수를 고려할 만한 조건 후보 2-3개, 각 한 문장"],"check_conditions":[{"label":"확인 항목 (25자 이내)","for_reason":"이 항목이 검증하는 논점 (reason_reviews의 reason과 똑같은 문구)","why":"이 항목이 내 가설에 왜 중요한지 한 문장","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}
+먼저 매수 이유를 개별 논점으로 나눠라 (번호·줄바꿈·문장 단위). 그 다음 웹검색으로 종목의 실제 상황과 다가오는 이벤트(실적발표일 등)를 확인하고, 다음 JSON만 출력:
+{"score":0,"summary":"한 줄 총평 (40자 이내)","reason_reviews":[{"reason":"논점 요약 (20자 이내)","verdict":"타당|부분 타당|약함","comment":"왜 그런지 1-2문장"}],"missing_points":["사용자가 놓친 관점 1-3개, 각 한 문장"],"counterpoints":["가설이 깨질 수 있는 시나리오 2-4개, 각 한 문장"],"add_candidates":["추가매수를 고려할 만한 조건 후보 2-3개, 각 한 문장"],"check_conditions":[{"label":"확인 항목 (25자 이내)","for_reason":"이 항목이 검증하는 논점 (reason_reviews의 reason과 똑같은 문구)","why":"이 항목이 내 가설에 왜 중요한지 한 문장","event_type":"earnings|guidance|metric|custom","next_check_date":"YYYY-MM-DD 또는 null"}]}
 
 score 채점 기준 (0~100 정수):
 - 사실 부합성 40점: 논거가 실제 데이터·뉴스와 맞는가
@@ -29,19 +28,22 @@ score 채점 기준 (0~100 정수):
 - 리스크 인지 30점: 깨지는 조건이 구체적이고 핵심 리스크를 덮는가
 - 티커 오지정이면 30점 이하.
 
+verdict 기준 (논점마다 증거를 확인해 확실히 갈라라):
+- "타당": 최근 사실·데이터와 부합하고 근거→결론이 이어짐. 대체로 맞는 논점은 타당이다.
+- "부분 타당": 방향은 맞지만 핵심 근거가 아직 확인 안 됐거나 조건이 붙을 때만.
+- "약함": 사실과 다르거나, 이미 지난 얘기거나, 결론과 인과가 끊길 때.
+- 확신이 서는 논점은 과감히 타당/약함으로 판정하라. 애매하다는 이유로 전부 "부분 타당"에 몰지 마라.
+
 작성 규칙:
-- 모든 문장은 쉬운 일상어로 써라. 어려운 용어를 쓰면 바로 뒤에 짧게 풀어써라. 예: "포워드 PER(내년 이익 대비 주가 배수)".
-- 한 문장 50자 이내. 완결된 문장으로, 중간에 끊지 마라.
-- URL·마크다운 링크·괄호 출처표기 절대 금지.
-- verdict 기준: 사실과 부합하고 논리 연결이 강하면 "타당", 방향은 맞지만 조건부/근거 부족이면 "부분 타당", 사실과 다르거나 논리가 끊기면 "약함".
+- 한 문장 50자 이내.
 - 자산 유형을 먼저 판별하라:
   · ETF/펀드 → 단일기업 지표(PER·수주잔고)가 안 맞는 논점은 verdict "약함" 처리하고 comment에서 섹터·편입종목 관점으로 바꿔 설명하라.
   · 존재하지 않거나 상장폐지된 티커 → reason_reviews 첫 항목 reason을 "⚠️ 티커 확인 필요"로, comment에 어떤 종목인지 설명.
-- 반드시 완전하고 유효한 JSON으로 끝내라.`;
+${OUTPUT_RULES}`;
 }
 
 export function buildRevisePrompt(p: { buy_reason: string; break_conditions: string; add_conditions: string | null; review: unknown }): string {
-  return `당신은 투자 가설 수정 도우미다. 아래 사용자의 가설과 AI 점검 피드백을 반영해, 가설을 더 구체적이고 검증 가능하게 다듬어라. 사용자의 원래 의도와 관점은 유지하고, 피드백에서 지적된 약점만 보완하라. "매수하세요" 표현 금지.
+  return `당신은 투자 가설 수정 도우미다. 아래 사용자의 가설과 AI 점검 피드백을 반영해, 가설을 더 구체적이고 검증 가능하게 다듬어라. 사용자의 원래 의도와 관점은 유지하고, 피드백에서 지적된 약점만 보완하라. ${NO_ADVICE_RULE}
 
 [현재 가설]
 매수 이유: ${p.buy_reason}
@@ -51,16 +53,16 @@ export function buildRevisePrompt(p: { buy_reason: string; break_conditions: str
 [AI 점검 피드백]
 ${JSON.stringify(p.review)}
 
-다음 JSON만 출력 (URL 금지, 쉬운 말):
+다음 JSON만 출력:
 {"buy_reason":"수정된 매수 이유","break_conditions":"수정된 깨지는 조건 (정량 기준 포함)","add_conditions":"수정된 추가매수 조건 또는 null","note":"무엇을 바꿨는지 한 문장"}
 
 작성 규칙:
 - 각 필드는 번호 목록으로: "1. …\\n2. …" 형식, 항목당 한 문장 (40자 이내).
-- 필드별 문체를 지켜라:
+- 필드별 문체를 반드시 지켜라:
   · buy_reason = "왜 샀는가"의 서술문. "~하고 있다", "~일 것으로 본다" 처럼 현재 상황·전망을 말하라. "~확인시", "~상향시" 같은 조건문 절대 금지 (그건 조건 필드 몫이다). 예: "AI 서버 수요로 DRAM 출하량이 빠르게 늘고 있다".
-  · break_conditions / add_conditions = 조건문("~시", 수치 기준 포함)으로.
-- buy_reason도 피드백을 반영해 다듬되, 사용자의 원래 관점은 유지.
-- 항목 수는 원문과 비슷하게. 원문보다 길어지지 마라. 전체적으로 짧고 명확하게.`;
+  · break_conditions / add_conditions = 조건문으로. "~시" 꼴에 수치 기준을 넣어라. 예: "2개 분기 연속 영업이익률 10% 미만시".
+- 항목 수는 원문과 비슷하게, 원문보다 길어지지 마라.
+${OUTPUT_RULES}`;
 }
 
 interface ReviseResult { buy_reason: string; break_conditions: string; add_conditions: string | null; note: string }

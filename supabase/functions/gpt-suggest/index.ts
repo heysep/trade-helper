@@ -1,4 +1,4 @@
-import { callOpenAI, parseJsonBlock, stripLinks } from "../_shared/openai.ts";
+import { callOpenAI, NO_ADVICE_RULE, OUTPUT_RULES, parseJsonBlock, stripLinks } from "../_shared/openai.ts";
 
 interface SuggestResult {
   reasons: Array<{ text: string; watch_items: string[] }>;
@@ -7,17 +7,17 @@ interface SuggestResult {
 }
 
 export function buildSuggestPrompt(p: { name: string; ticker: string; market: string; today: string }): string {
-  return `당신은 투자 가설 작성 도우미다. 자문·추천이 아니라, 이 종목에 대해 시장에서 흔히 논의되는 투자 논거를 정리해줄 뿐이다. "매수하세요" 표현 금지.
+  return `당신은 투자 가설 작성 도우미다. 이 종목에 대해 시장에서 흔히 논의되는 투자 논거를 정리해줄 뿐이다. ${NO_ADVICE_RULE}
 오늘: ${p.today}
 종목: ${p.name} (${p.market}:${p.ticker})
 
 웹검색으로 이 종목의 최근 상황을 확인하고, 다음 JSON만 출력:
-{"reasons":[{"text":"매수 논거 한 문장 (쉬운 말, 40자 이내)","watch_items":["이 논거가 유효한지 확인할 감시 항목 1-2개 (20자 이내)"]}],"break_candidates":["가설이 깨지는 조건 후보 3-4개, 각 한 문장"],"add_candidates":["추가매수 조건 후보 2-3개, 각 한 문장"]}
+{"reasons":[{"text":"매수 논거 한 문장 (40자 이내)","watch_items":["이 논거가 유효한지 확인할 감시 항목 1-2개 (20자 이내)"]}],"break_candidates":["가설이 깨지는 조건 후보 3-4개, 각 한 문장"],"add_candidates":["추가매수 조건 후보 2-3개, 각 한 문장"]}
 
 작성 규칙:
-- reasons는 서로 다른 관점 3-4개 (성장·밸류에이션·사이클·이벤트 등).
-- 쉬운 일상어. 전문용어는 짧게 풀어쓰기. URL·링크 금지.
-- 반드시 완전한 JSON.`;
+- reasons는 서로 다른 관점 3-4개 (성장·밸류에이션·사이클·이벤트 등). ETF/펀드면 섹터·편입종목·자금흐름 관점으로.
+- 문체: reasons.text는 서술문("~하고 있다"), break_candidates/add_candidates는 조건문("~시", 가능하면 수치 기준 포함).
+${OUTPUT_RULES}`;
 }
 
 const CORS_HEADERS = {

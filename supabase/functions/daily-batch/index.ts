@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { callOpenAI, parseJsonBlock, stripLinks } from "../_shared/openai.ts";
+import { callOpenAI, NO_ADVICE_RULE, OUTPUT_RULES, parseJsonBlock, stripLinks } from "../_shared/openai.ts";
 
 export function shouldRunToday(d: Date): boolean {
   const day = d.getUTCDay();
@@ -11,31 +11,40 @@ export function decideEval(scan: { change_level: string }): "skip" | "eval" {
 }
 
 export function buildScanPrompt(p: { ticker: string; market: string; name: string; today: string }): string {
-  return `당신은 종목 데일리 스캐너다. 오늘(${p.today}) 기준 ${p.name}(${p.market}:${p.ticker})에 대해 웹검색으로 최근 24-48시간 내 투자 판단에 영향을 줄 뉴스·공시·실적·가이던스 변화만 확인하라. 루머·주가등락 자체는 제외. 다음 JSON만 출력:
+  return `당신은 종목 데일리 스캐너다. 오늘(${p.today}) 기준 ${p.name}(${p.market}:${p.ticker})에 대해 웹검색으로 최근 24-48시간 내 투자 판단에 영향을 줄 뉴스·공시·실적·가이던스 변화만 확인하라. 루머·단순 주가 등락·오래된 기사 재탕은 제외. 다음 JSON만 출력:
 {"summary":"핵심 변화 요약 (한국어 2-4문장, 변화 없으면 '특이사항 없음')","change_level":"none|minor|major","sources":["url1","url2"]}
 
-작성 규칙: summary에는 URL·마크다운 링크 금지 (링크는 sources 배열에만). 문장 짧게.`;
+change_level 기준:
+- none: 투자 판단에 영향 줄 새 소식 없음 (summary는 "특이사항 없음").
+- minor: 참고할 소식은 있으나 실적·가이던스·핵심 사업에 직접 영향은 아님.
+- major: 실적·가이던스·핵심 사업·규제에 직접 영향이 확인된 소식.
+
+작성 규칙: URL은 sources 배열에만 담고 summary에는 URL·마크다운 금지. 문장은 짧고 쉬운 말로. 설명·코드펜스 없이 완전하고 유효한 JSON 하나로 끝내라.`;
 }
 
 export function buildEvalPrompt(p: { buy_reason: string; break_conditions: string; add_conditions?: string | null; summary: string; today: string; watch_labels?: string[] }): string {
   const watch = (p.watch_labels ?? []).length ? `\n감시 항목: ${p.watch_labels!.join(" / ")}` : "";
   const addc = p.add_conditions ? `\n추가매수 조건: ${p.add_conditions}` : "";
-  return `당신은 투자 가설 점검 보조 도구다. 자문·추천 금지. "매수/매도하세요" 표현 금지. 가설 대비 변화만 서술.
+  return `당신은 투자 가설 점검 보조 도구다. ${NO_ADVICE_RULE} 가설 대비 변화만 서술하라.
 오늘: ${p.today}
 사용자 가설: ${p.buy_reason}
 깨지는 조건: ${p.break_conditions}${addc}${watch}
 오늘 스캔 요약: ${p.summary}
 
 스캔 내용이 가설/깨지는 조건에 미치는 영향을 판단해 다음 JSON만 출력:
-{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)","checks":[{"label":"감시 항목 라벨 (목록에 있는 것 전부, 하나씩)","state":"ok|broken","why":"왜 정상인지/왜 깨졌는지 한 문장"}],"add_signal":false}
+{"opinion":"hold|watch|reduce|exit","rationale":"판단 근거 (한국어 2-4문장)","checks":[{"label":"감시 항목 라벨","state":"ok|broken","why":"왜 정상인지/왜 깨졌는지 한 문장"}],"add_signal":false}
 
 opinion 기준 (엄격히 적용):
-- hold: 가설이 유효하고 깨지는 조건에 해당하는 변화가 없음. 중립적·긍정적 뉴스, "계속 지켜볼 필요" 는 전부 hold다. 모든 투자는 원래 지속 관찰이 필요하므로 그 이유만으로 watch를 주지 마라.
+- hold: 가설이 유효하고 깨지는 조건에 해당하는 변화가 없음. 중립적·긍정적 뉴스, "계속 지켜볼 필요"는 전부 hold다. 모든 투자는 원래 지속 관찰이 필요하므로 그 이유만으로 watch를 주지 마라.
 - watch: 깨지는 조건과 직접 관련된 부정적 신호가 실제로 나타났으나 아직 확정은 아닐 때만.
 - reduce: 깨지는 조건이 일부 충족됐을 때.
-- exit: 깨지는 조건이 명확히 충족됐을 때.\n\nadd_signal: 추가매수 조건이 있고 오늘 스캔 기준으로 그 조건이 충족됐으면 true. 조건이 없거나 불충족이면 false.
+- exit: 깨지는 조건이 명확히 충족됐을 때.
 
-작성 규칙: rationale에 URL·마크다운 링크 금지. 문장마다 \\n 줄바꿈, 짧게.`;
+checks: 위 감시 항목 목록의 라벨을 하나도 빠짐없이, 표기 그대로 넣어라. 감시 항목이 없으면 빈 배열 [].
+add_signal: 추가매수 조건이 있고 오늘 스캔 기준으로 충족됐으면 true. 조건이 없거나 불충족이면 false.
+
+작성 규칙: rationale은 문장마다 \\n 줄바꿈, 짧게.
+${OUTPUT_RULES}`;
 }
 
 interface FeedEvent { title: string; country: string; date: string; impact: string }
@@ -63,14 +72,16 @@ export function buildCuratePrompt(events: Array<{ title: string; country: string
 {"events":[{"event_date":"YYYY-MM-DD","label":"한국어 일정명 (25자 이내)","region":"US|CN|KR|EU|JP|global","importance":"high|normal"}]}
 선택 기준: 금리결정·CPI·고용·GDP·PMI 우선. 같은 날 중복 지표는 대표 1개만. impact High는 importance high로.
 통화→region: USD→US, CNY→CN, EUR→EU, JPY→JP, 나머지→global.
+설명·코드펜스 없이 완전하고 유효한 JSON 하나로 끝내라.
 
 ${lines}`;
 }
 
 export function buildKoreaMacroPrompt(today: string): string {
   return `오늘(${today})부터 14일 이내 예정된 한국 매크로 일정만 웹검색으로 확인하라 (금통위 금리결정, 수출입 통계, 산업활동동향 등. 개별 기업 실적 제외).
-다음 JSON만 출력 (URL 금지, label 25자 이내, 없으면 빈 배열):
-{"events":[{"event_date":"YYYY-MM-DD","label":"일정 이름","region":"KR","importance":"high|normal"}]}`;
+다음 JSON만 출력 (label 25자 이내·URL 금지, 해당 일정 없으면 events는 빈 배열):
+{"events":[{"event_date":"YYYY-MM-DD","label":"일정 이름","region":"KR","importance":"high|normal"}]}
+설명·코드펜스 없이 완전하고 유효한 JSON 하나로 끝내라.`;
 }
 
 interface MacroJson { events: Array<{ event_date: string; label: string; region: string; importance: string }> }
